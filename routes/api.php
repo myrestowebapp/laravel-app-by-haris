@@ -20,6 +20,15 @@ Route::get('/stats', [PublicStatsController::class, 'index']);
 Route::get('/public/stats', [PublicStatsController::class, 'index']);
 Route::get('/public/stats/cards', [PublicStatsController::class, 'cards']);
 
+// Centralized Global Visitor Analytics API
+Route::get('/admin/visitor-analytics/summary', function () {
+    return response()->json([
+        'status'  => 'success',
+        'message' => 'Global visitor analytics summary retrieved successfully',
+        'data'    => \App\Services\GlobalVisitorAnalyticsService::getGlobalSummary()
+    ]);
+});
+
 // Public: Search Filters (Madhabs & Popular Categories with Fatwa Count) API
 Route::get('/public/search-filters', function () {
     $filters = \Illuminate\Support\Facades\Cache::remember('api_public_search_filters_v3', 1800, function () {

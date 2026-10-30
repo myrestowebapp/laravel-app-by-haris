@@ -68,9 +68,10 @@
         $isMuftiOnline = $mufti->isOnline(5);
         $lastSeenFormatted = $mufti->last_seen_at ? $mufti->last_seen_at->diffForHumans() : 'Never active';
         $lastLoginFormatted = $mufti->last_login_at ? $mufti->last_login_at->diffForHumans() : 'Never';
+        $isKingScholar = $loop->first && $muftis->currentPage() === 1 && ($mufti->published_count ?? 0) > 0;
     @endphp
-    <div class="col-6 col-md-4 col-lg-3 col-xl-5th">
-        <div class="scholar-full-card">
+    <div class="col-6 col-md-4 col-lg-3">
+        <div class="scholar-full-card {{ $isKingScholar ? 'scholar-king-card' : '' }}">
             {{-- Background/Main Image --}}
             <div class="scholar-image-container">
                 <img src="{{ $mufti->avatar ? asset($mufti->avatar) : 'https://ui-avatars.com/api/?name='.urlencode($mufti->name).'&background=f1f5f9&color=1a7a4a&size=512' }}" 
@@ -110,8 +111,15 @@
                 </div>
             </div>
 
+            {{-- Top Contributing Scholar (King Status) --}}
+            @if($isKingScholar)
+                <div class="scholar-king-tag" title="Leading Scholar — Most Published Fatwas ({{ $mufti->published_count }})">
+                    <i class="bi bi-crown-fill me-1"></i> TOP SCHOLAR
+                </div>
+            @endif
+
             {{-- Live Online Status Badge (Top-Left) --}}
-            <div class="scholar-live-tag {{ $isMuftiOnline ? 'tag-online' : 'tag-offline' }}" title="{{ $isMuftiOnline ? 'Currently Live on Mufti Dashboard' : 'Last seen: ' . $lastSeenFormatted }}">
+            <div class="scholar-live-tag {{ $isKingScholar ? 'under-king-tag' : '' }} {{ $isMuftiOnline ? 'tag-online' : 'tag-offline' }}" title="{{ $isMuftiOnline ? 'Currently Live on Mufti Dashboard' : 'Last seen: ' . $lastSeenFormatted }}">
                 @if($isMuftiOnline)
                     <span class="live-pulse-dot"></span>
                     <span class="tag-label">ONLINE</span>
@@ -269,6 +277,43 @@
     .btn-glass-action:hover {
         background: #fff;
         transform: scale(1.06);
+    }
+
+    /* ── Top Contributing Scholar (King Status) ── */
+    .scholar-king-card {
+        border: 2.5px solid #F59E0B !important;
+        box-shadow: 0 8px 24px rgba(245, 158, 11, 0.35) !important;
+    }
+    .scholar-king-tag {
+        position: absolute;
+        top: 0.75rem;
+        left: 0.75rem;
+        z-index: 6;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.65rem;
+        font-weight: 800;
+        letter-spacing: 0.4px;
+        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+        color: #FFFFFF;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.45);
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+    }
+    .scholar-live-tag.under-king-tag {
+        top: 2.35rem !important;
+    }
+    @media (max-width: 575.98px) {
+        .scholar-king-tag {
+            top: 0.5rem;
+            left: 0.5rem;
+            padding: 2.5px 7px;
+            font-size: 0.55rem;
+        }
+        .scholar-live-tag.under-king-tag {
+            top: 1.85rem !important;
+        }
     }
 
     /* ── Live Online Tag ── */

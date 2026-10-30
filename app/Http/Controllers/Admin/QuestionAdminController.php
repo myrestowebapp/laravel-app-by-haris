@@ -529,6 +529,121 @@ class QuestionAdminController extends Controller
 
     public function reject(Request $request, QuestionAndAnswer $question)
     {
+        // Check if this is a structured question rejection from the rejection modal
+        if ($request->filled('rejection_reason')) {
+            $request->validate([
+                'rejection_reason'   => ['required', 'string'],
+                'explanation'        => ['nullable', 'string', 'max:2000'],
+                'internal_note'      => ['nullable', 'string', 'max:2000'],
+                'notify_questioner'  => ['nullable'],
+            ]);
+
+            // If "Other" reason is selected, require explanation
+            if (strtolower(trim($request->rejection_reason)) === 'other' && empty(trim($request->explanation ?? ''))) {
+                return redirect()->back()->withErrors(['explanation' => 'An explanation is required when "Other" is selected as the rejection reason.'])->withInput();
+            }
+
+            // Reject is only permitted before accepting the question (status must be 'pending')
+            if ($question->status !== 'pending') {
+                return redirect()->back()->with('error', 'Only pending questions can be rejected before acceptance. Once accepted or published, questions cannot be rejected.');
+            }
+
+            $previousStatus = $question->status;
+            $reason = trim($request->rejection_reason);
+            $explanation = trim($request->explanation ?? '');
+            $internalNote = trim($request->internal_note ?? '');
+
+            // Update status to rejected
+            $question->update([
+                'status'    => 'rejected',
+                'status_id' => \App\Models\Status::REJECTED,
+            ]);
+
+            // Build detailed note for Activity Log
+            $logNotes = "Reason: {$reason}";
+            if (!empty($explanation)) {
+                $logNotes .= "\nPublic Explanation: {$explanation}";
+            }
+            if (!empty($internalNote)) {
+                $logNotes .= "\n[Internal Note]: {$internalNote}";
+            }
+
+            // Log event in FatwaActivityLog
+            FatwaActivityLog::log(
+                $question->id,
+                'rejected',
+                'Question Rejected: ' . $reason,
+                'bi-x-octagon-fill',
+                'danger',
+                $logNotes,
+                Auth::id()
+            );
+
+            // Log event in QuestionStatusHistory
+            QuestionStatusHistory::create([
+                'question_and_answer_id' => $question->id,
+                'previous_status'        => $previousStatus,
+                'new_status'             => 'rejected',
+                'user_id'                => Auth::id(),
+                'remarks'                => 'Question rejected. Reason: ' . $reason . ($explanation ? ' (' . $explanation . ')' : ''),
+            ]);
+
+            // Attempt email notification if requested and questioner email exists
+            $mailStatus = 'not_requested';
+            $mailError = null;
+            if ($request->boolean('notify_questioner') && $question->user && !empty($question->user->email)) {
+                try {
+                    // Try to send rejection mail if Mailable exists
+                    if (class_exists(\App\Mail\QuestionRejectedMail::class)) {
+                        Mail::to($question->user->email)->send(new \App\Mail\QuestionRejectedMail($question, $reason, $explanation));
+                        $mailStatus = 'sent';
+                    } else {
+                        // Inline fallback mail
+                        Mail::send('emails.question-rejected', [
+                            'question'    => $question,
+                            'reason'      => $reason,
+                            'explanation' => $explanation,
+                        ], function ($message) use ($question) {
+                            $message->to($question->user->email)
+                                    ->subject('Update Regarding Your Submitted Islamic Question – ' . $question->question_id);
+                        });
+                        $mailStatus = 'sent';
+                    }
+                } catch (\Throwable $e) {
+                    $mailStatus = 'failed';
+                    $mailError = $e->getMessage();
+                    \Illuminate\Support\Facades\Log::warning("Question rejection notification email failed: " . $e->getMessage());
+                }
+            }
+
+            // Record in question_rejection_logs table if migrated
+            if (\Illuminate\Support\Facades\Schema::hasTable('question_rejection_logs')) {
+                try {
+                    \Illuminate\Support\Facades\DB::table('question_rejection_logs')->insert([
+                        'question_and_answer_id' => $question->id,
+                        'question_id'            => $question->question_id,
+                        'rejection_reason_key'   => \Illuminate\Support\Str::slug($reason, '_'),
+                        'rejection_reason'       => $reason,
+                        'explanation'            => $explanation ?: null,
+                        'internal_note'          => $internalNote ?: null,
+                        'rejected_by'            => Auth::id(),
+                        'rejected_at'            => now(),
+                        'notification_status'    => $mailStatus,
+                        'notification_error'     => $mailError,
+                        'is_reopened'            => false,
+                        'created_at'             => now(),
+                        'updated_at'             => now(),
+                    ]);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning("Could not insert into question_rejection_logs: " . $e->getMessage());
+                }
+            }
+
+            return redirect()->route('admin.questions.show', $question)
+                ->with('success', 'Question ' . $question->question_id . ' has been rejected with the recorded reason.');
+        }
+
+        // Legacy handler: Answer verification rejection (moves back to under_review)
         $request->validate(['admin_notes' => 'required|string']);
         $previousStatus = $question->status;
 

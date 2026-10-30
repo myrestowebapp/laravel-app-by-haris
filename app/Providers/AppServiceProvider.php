@@ -4,6 +4,16 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
+use App\Models\QuestionAndAnswer;
+use App\Models\Category;
+use App\Models\Madhab;
+use App\Models\User;
+use App\Models\FatwaFeaturedRule;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Services\FatwaIntegrityRestorationService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,14 +31,80 @@ class AppServiceProvider extends ServiceProvider
 
         // Centralized Cache Invalidation closure
         $clearCache = function () {
-            \Illuminate\Support\Facades\Cache::flush();
+            Cache::flush();
         };
 
         // Attach listeners to relevant models
-        \App\Models\QuestionAndAnswer::saved($clearCache);
-        \App\Models\QuestionAndAnswer::deleted($clearCache);
-        \App\Models\Category::saved($clearCache);
-        \App\Models\Category::deleted($clearCache);
+        QuestionAndAnswer::saved($clearCache);
+        QuestionAndAnswer::deleted($clearCache);
+        Category::saved($clearCache);
+        Category::deleted($clearCache);
+        Madhab::saved($clearCache);
+        Madhab::deleted($clearCache);
+        User::saved($clearCache);
+        User::deleted($clearCache);
+
+        // Global View Composer for Admin Layout (Sidebar Telemetry Numbers)
+        View::composer('layouts.admin', function ($view) {
+            $sidebarCounts = Cache::remember('admin_sidebar_counts', 15, function () {
+                try {
+                    $statusCounts = QuestionAndAnswer::selectRaw('status, count(*) as count')
+                        ->groupBy('status')
+                        ->pluck('count', 'status')
+                        ->toArray();
+                    $totalQuestions = array_sum($statusCounts);
+
+                    $muftiCount = User::whereHas('role', fn($q) => $q->where('name', 'mufti'))->count();
+                    $categoryCount = Category::count();
+                    $madhabCount = Madhab::count();
+                    $questionerCount = User::whereHas('questions')->count();
+
+                    $featuredCount = 0;
+                    if (Schema::hasTable('fatwa_featured_rules')) {
+                        $featuredCount = FatwaFeaturedRule::count();
+                    }
+
+                    $liveVisitors = 1;
+                    if (class_exists(DashboardController::class)) {
+                        $liveData = DashboardController::getRealtimeLiveVisitorsCount();
+                        $liveVisitors = $liveData['byIp'] ?? 1;
+                    }
+
+                    $totalAudience = \App\Services\GlobalVisitorAnalyticsService::getTotalVisitors();
+
+                    $collisionCount = 0;
+                    if (class_exists(FatwaIntegrityRestorationService::class)) {
+                        $collisionCount = QuestionAndAnswer::whereIn('question_id', FatwaIntegrityRestorationService::COLLISION_QIDS)
+                            ->where('status', 'published')
+                            ->count();
+                    }
+
+                    return [
+                        'total_questions' => $totalQuestions,
+                        'pending'         => $statusCounts['pending'] ?? 0,
+                        'accepted'        => $statusCounts['accepted'] ?? 0,
+                        'assigned'        => $statusCounts['assigned'] ?? 0,
+                        'drafted'         => $statusCounts['drafted'] ?? 0,
+                        'answered'        => $statusCounts['answered'] ?? 0,
+                        'under_review'    => $statusCounts['under_review'] ?? 0,
+                        'published'       => $statusCounts['published'] ?? 0,
+                        'rejected'        => $statusCounts['rejected'] ?? 0,
+                        'muftis'          => $muftiCount,
+                        'categories'      => $categoryCount,
+                        'madhabs'         => $madhabCount,
+                        'questioners'     => $questionerCount,
+                        'featured'        => $featuredCount,
+                        'visitors'        => $liveVisitors,
+                        'total_visitors'  => $totalAudience,
+                        'collisions'      => $collisionCount,
+                    ];
+                } catch (\Throwable $e) {
+                    return [];
+                }
+            });
+
+            $view->with('sidebarCounts', $sidebarCounts);
+        });
 
         // Global Blade Directives for Status Management
         \Illuminate\Support\Facades\Blade::directive('statusBadge', function ($expression) {

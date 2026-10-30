@@ -247,7 +247,8 @@
                     $initials = $initials ?: 'U';
 
                     // Scholar Monogram Initials
-                    $sName = $q->assignedMufti?->name ?? '';
+                    $isScholarVisible = $q->assignedMufti && !in_array($q->status, ['pending', 'rejected']);
+                    $sName = $isScholarVisible ? ($q->assignedMufti?->name ?? '') : '';
                     $sInitials = '';
                     if ($sName) {
                         $sWords = explode(' ', trim($sName));
@@ -345,7 +346,7 @@
 
                     {{-- Assigned Scholar --}}
                     <td>
-                        @if($q->assignedMufti)
+                        @if($isScholarVisible)
                             <div class="d-flex align-items-center gap-2">
                                 <div class="avatar-monogram" style="background: #FEF3C7; color: #92400E; width: 28px; height: 28px; font-size: 0.72rem;">
                                     {{ $sInitials ?: 'M' }}

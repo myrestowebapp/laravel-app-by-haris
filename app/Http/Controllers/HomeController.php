@@ -19,7 +19,7 @@ class HomeController extends Controller
                 'total'     => QuestionAndAnswer::count(),
                 'published' => QuestionAndAnswer::where('status', 'published')->count(),
                 'muftis'    => User::whereHas('role', fn($q) => $q->where('name', 'mufti'))->count(),
-                'visitors'  => QuestionAndAnswer::sum('views') + 1250,
+                'visitors'  => \App\Services\GlobalVisitorAnalyticsService::getTotalVisitors(),
             ];
         });
 

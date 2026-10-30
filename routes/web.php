@@ -157,6 +157,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/visitor-insights', [DashboardController::class, 'visitorInsights'])->name('visitor.insights');
+    Route::get('/api/visitor-insights-globe', [DashboardController::class, 'visitorInsightsGlobeApi'])->name('visitor.insights.api');
 
     // Import Old Fatwas & PDF Export
     Route::get('/fatwas/export-pdf', [DashboardController::class, 'exportPdf'])->name('fatwas.export.pdf');
@@ -238,6 +239,13 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     // Real-time API
     Route::get('/api/live-stats', [DashboardController::class, 'liveUsersApi'])->name('live-stats.api');
+
+    // Fatwa Data Integrity & Restoration Portal
+    Route::get('/fatwa-correction', [\App\Http\Controllers\Admin\FatwaCorrectionController::class, 'index'])->name('fatwa-correction.index');
+    Route::get('/fatwa-correction/search-candidates', [\App\Http\Controllers\Admin\FatwaCorrectionController::class, 'searchCandidates'])->name('fatwa-correction.search-candidates');
+    Route::get('/fatwa-correction/{fatwa}', [\App\Http\Controllers\Admin\FatwaCorrectionController::class, 'show'])->name('fatwa-correction.show');
+    Route::post('/fatwa-correction/restore', [\App\Http\Controllers\Admin\FatwaCorrectionController::class, 'restore'])->name('fatwa-correction.restore');
+    Route::post('/fatwa-correction/rollback', [\App\Http\Controllers\Admin\FatwaCorrectionController::class, 'rollback'])->name('fatwa-correction.rollback');
 
     // Featured Fatwas Rules
     Route::get('/featured-rules', [\App\Http\Controllers\Admin\FeaturedRuleController::class, 'index'])->name('featured-rules.index');

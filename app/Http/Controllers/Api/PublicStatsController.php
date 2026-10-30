@@ -37,9 +37,7 @@ class PublicStatsController extends Controller
                 // Muftis & Scholars
                 $totalMuftis = User::where('role_id', 2)->count();
                 if ($totalMuftis < 1) {
-                    $totalMuftis = User::whereHas('role', fn($q) => $q->where('name', 'mufti'))
-                        ->orWhereHas('roles', fn($q) => $q->where('name', 'mufti'))
-                        ->count();
+                    $totalMuftis = User::whereHas('role', fn($q) => $q->where('name', 'mufti'))->count();
                 }
                 if ($totalMuftis < 1) $totalMuftis = 13;
 
@@ -53,9 +51,8 @@ class PublicStatsController extends Controller
                 if ($registeredQuestioners < 1) $registeredQuestioners = max(0, $totalUsers - $totalMuftis - 1);
 
                 // Views & Reach
-                $rawViews = (int) QuestionAndAnswer::sum('views');
-                $portalVisitors = $rawViews + 1250;
-                if ($portalVisitors < 100) $portalVisitors = 3087;
+                $rawViews = \App\Services\GlobalVisitorAnalyticsService::getKnowledgeViews();
+                $portalVisitors = \App\Services\GlobalVisitorAnalyticsService::getTotalVisitors();
                 $countriesCount = 15;
 
                 // Categories & Taxonomies

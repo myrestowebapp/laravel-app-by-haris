@@ -220,6 +220,84 @@
             transform: rotate(180deg);
         }
 
+        /* ── Sidebar Count Badges ── */
+        .sidebar-count-pill {
+            background: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 10px;
+            letter-spacing: 0.2px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            line-height: 1.2;
+            transition: all 0.15s ease;
+        }
+
+        .sidebar-nav .nav-link:hover .sidebar-count-pill,
+        .sidebar-nav .nav-link.active .sidebar-count-pill {
+            background: rgba(255, 255, 255, 0.22);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+
+        .sidebar-sub-pill {
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 1.5px 6px;
+            border-radius: 8px;
+            line-height: 1.2;
+        }
+
+        .sidebar-sub-pill-amber {
+            background: rgba(217, 119, 6, 0.25);
+            color: #FCD34D;
+            border: 1px solid rgba(217, 119, 6, 0.35);
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 1.5px 6px;
+            border-radius: 8px;
+            line-height: 1.2;
+        }
+
+        .sidebar-sub-pill-emerald {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6EE7B7;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 1.5px 6px;
+            border-radius: 8px;
+            line-height: 1.2;
+        }
+
+        .sidebar-count-pill-live {
+            background: rgba(16, 185, 129, 0.18);
+            color: #34D399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 10px;
+            line-height: 1.2;
+        }
+
+        .sidebar-pulse-dot {
+            width: 5px;
+            height: 5px;
+            background-color: #34D399;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7);
+            animation: pulse-green 2s infinite;
+        }
+
+        .nav-link .sidebar-count-pill + .collapse-caret {
+            margin-left: 0.35rem;
+        }
+
         /* ── Main Content Container ── */
         .main-content {
             margin-left: var(--sidebar-w);
@@ -587,6 +665,7 @@
             @php
                 $isQuestionsActive = request()->routeIs('admin.questions*') || request()->routeIs('admin.fatwas*');
                 $currentStatus = request('status');
+                $totalQCount = $sidebarCounts['total_questions'] ?? 0;
             @endphp
             <a href="#questionsSubmenu" 
                data-bs-toggle="collapse" 
@@ -596,49 +675,72 @@
                class="nav-link {{ $isQuestionsActive ? 'active' : '' }}">
                 <i class="bi bi-question-circle-fill"></i>
                 <span>Questions</span>
+                @if($totalQCount > 0)
+                    <span class="badge sidebar-count-pill ms-auto">{{ number_format($totalQCount) }}</span>
+                @endif
                 <i class="bi bi-chevron-down collapse-caret"></i>
             </a>
             <div class="collapse {{ $isQuestionsActive ? 'show' : '' }}" id="questionsSubmenu">
                 <div class="sidebar-submenu d-flex flex-column">
                     <a href="{{ route('admin.questions.index') }}"
                         class="nav-link {{ request()->routeIs('admin.questions.index') && !$currentStatus ? 'active' : '' }}">
-                        <i class="bi bi-journals"></i> All Questions
+                        <i class="bi bi-journals"></i> 
+                        <span>All Questions</span>
+                        <span class="badge sidebar-sub-pill ms-auto">{{ number_format($totalQCount) }}</span>
                     </a>
                     <a href="{{ route('admin.questions.index', ['status' => 'pending']) }}" 
                         class="nav-link {{ $currentStatus === 'pending' ? 'active' : '' }}">
-                        <i class="bi bi-clock-history"></i> Pending (For Review)
+                        <i class="bi bi-clock-history"></i> 
+                        <span>Pending (Review)</span>
+                        @php $pendingCount = $sidebarCounts['pending'] ?? 0; @endphp
+                        <span class="badge {{ $pendingCount > 0 ? 'sidebar-sub-pill-amber' : 'sidebar-sub-pill' }} ms-auto">{{ number_format($pendingCount) }}</span>
                     </a>
                     <a href="{{ route('admin.questions.index', ['status' => 'accepted']) }}" 
                         class="nav-link {{ $currentStatus === 'accepted' ? 'active' : '' }}">
-                        <i class="bi bi-check2-circle"></i> Accepted
+                        <i class="bi bi-check2-circle"></i> 
+                        <span>Accepted</span>
+                        <span class="badge sidebar-sub-pill ms-auto">{{ number_format($sidebarCounts['accepted'] ?? 0) }}</span>
                     </a>
                     <a href="{{ route('admin.questions.index', ['status' => 'assigned']) }}" 
                         class="nav-link {{ $currentStatus === 'assigned' ? 'active' : '' }}">
-                        <i class="bi bi-person-check"></i> Assigned to Mufti
+                        <i class="bi bi-person-check"></i> 
+                        <span>Assigned to Mufti</span>
+                        <span class="badge sidebar-sub-pill ms-auto">{{ number_format($sidebarCounts['assigned'] ?? 0) }}</span>
                     </a>
                     <a href="{{ route('admin.questions.index', ['status' => 'drafted']) }}" 
                         class="nav-link {{ $currentStatus === 'drafted' ? 'active' : '' }}">
-                        <i class="bi bi-pencil-square"></i> Mufti Drafted
+                        <i class="bi bi-pencil-square"></i> 
+                        <span>Mufti Drafted</span>
+                        <span class="badge sidebar-sub-pill ms-auto">{{ number_format($sidebarCounts['drafted'] ?? 0) }}</span>
                     </a>
                     <a href="{{ route('admin.questions.index', ['status' => 'answered']) }}" 
                         class="nav-link {{ $currentStatus === 'answered' ? 'active' : '' }}">
-                        <i class="bi bi-chat-check"></i> Answered by Mufti
+                        <i class="bi bi-chat-check"></i> 
+                        <span>Answered by Mufti</span>
+                        <span class="badge sidebar-sub-pill ms-auto">{{ number_format($sidebarCounts['answered'] ?? 0) }}</span>
                     </a>
                     <a href="{{ route('admin.questions.index', ['status' => 'under_review']) }}" 
                         class="nav-link {{ $currentStatus === 'under_review' ? 'active' : '' }}">
-                        <i class="bi bi-arrow-repeat"></i> Under Review (Returned)
+                        <i class="bi bi-arrow-repeat"></i> 
+                        <span>Under Review</span>
+                        <span class="badge sidebar-sub-pill ms-auto">{{ number_format($sidebarCounts['under_review'] ?? 0) }}</span>
                     </a>
                     <a href="{{ route('admin.questions.index', ['status' => 'published']) }}" 
                         class="nav-link {{ $currentStatus === 'published' ? 'active' : '' }}">
-                        <i class="bi bi-journal-check"></i> Published to Public
+                        <i class="bi bi-journal-check"></i> 
+                        <span>Published to Public</span>
+                        <span class="badge sidebar-sub-pill-emerald ms-auto">{{ number_format($sidebarCounts['published'] ?? 0) }}</span>
                     </a>
                     <a href="{{ route('admin.questions.index', ['status' => 'rejected']) }}" 
                         class="nav-link {{ $currentStatus === 'rejected' ? 'active' : '' }}">
-                        <i class="bi bi-x-circle"></i> Rejected
+                        <i class="bi bi-x-circle"></i> 
+                        <span>Rejected</span>
+                        <span class="badge sidebar-sub-pill ms-auto">{{ number_format($sidebarCounts['rejected'] ?? 0) }}</span>
                     </a>
                     <a href="{{ route('admin.fatwas.import-old') }}" 
                         class="nav-link {{ request()->routeIs('admin.fatwas.import-old') ? 'active' : '' }}">
-                        <i class="bi bi-cloud-arrow-up text-warning"></i> Import Old Fatwa
+                        <i class="bi bi-cloud-arrow-up text-warning"></i> 
+                        <span>Import Old Fatwa</span>
                     </a>
                 </div>
             </div>
@@ -655,26 +757,31 @@
                 class="nav-link {{ request()->routeIs('admin.muftis*') ? 'active' : '' }}">
                 <i class="bi bi-person-badge-fill"></i>
                 <span>Mufti Management</span>
+                <span class="badge sidebar-count-pill ms-auto">{{ number_format($sidebarCounts['muftis'] ?? 0) }}</span>
             </a>
             <a href="{{ route('admin.categories.index') }}"
                 class="nav-link {{ request()->routeIs('admin.categories*') ? 'active' : '' }}">
                 <i class="bi bi-tags-fill"></i>
                 <span>Categories</span>
+                <span class="badge sidebar-count-pill ms-auto">{{ number_format($sidebarCounts['categories'] ?? 0) }}</span>
             </a>
             <a href="{{ route('admin.madhabs.index') }}"
                 class="nav-link {{ request()->routeIs('admin.madhabs*') ? 'active' : '' }}">
                 <i class="bi bi-book-fill"></i>
                 <span>Madhab</span>
+                <span class="badge sidebar-count-pill ms-auto">{{ number_format($sidebarCounts['madhabs'] ?? 0) }}</span>
             </a>
             <a href="{{ route('admin.questioners.index') }}"
                 class="nav-link {{ request()->routeIs('admin.questioners*') ? 'active' : '' }}">
                 <i class="bi bi-people-fill"></i>
                 <span>Questioners</span>
+                <span class="badge sidebar-count-pill ms-auto">{{ number_format($sidebarCounts['questioners'] ?? 0) }}</span>
             </a>
             <a href="{{ route('admin.featured-rules.index') }}"
                 class="nav-link {{ request()->routeIs('admin.featured-rules*') ? 'active' : '' }}">
                 <i class="bi bi-stars"></i>
                 <span>Featured Fatwas</span>
+                <span class="badge sidebar-count-pill ms-auto">{{ number_format($sidebarCounts['featured'] ?? 0) }}</span>
             </a>
 
             <div class="sidebar-section-title">SYSTEM CONTROL</div>
@@ -682,6 +789,7 @@
                 class="nav-link {{ request()->routeIs('admin.visitor.insights') ? 'active' : '' }}">
                 <i class="bi bi-globe-americas"></i>
                 <span>Visitor Insights</span>
+                <span class="badge sidebar-count-pill ms-auto">{{ number_format($sidebarCounts['total_visitors'] ?? 0) }}</span>
             </a>
             <a href="{{ route('admin.settings.system') }}"
                 class="nav-link {{ request()->routeIs('admin.settings.system') ? 'active' : '' }}">
@@ -697,6 +805,14 @@
                 class="nav-link">
                 <i class="bi bi-shield-check text-info"></i>
                 <span>System Health & Portal</span>
+            </a>
+            <a href="{{ route('admin.fatwa-correction.index') }}"
+                class="nav-link {{ request()->routeIs('admin.fatwa-correction*') ? 'active' : '' }}">
+                <i class="bi bi-database-check text-warning"></i>
+                <span>Data Integrity & Restoration</span>
+                @if(!empty($sidebarCounts['collisions']) && $sidebarCounts['collisions'] > 0)
+                    <span class="badge sidebar-sub-pill-amber ms-auto" title="Collisions Awaiting Review">{{ $sidebarCounts['collisions'] }}</span>
+                @endif
             </a>
 
             <div class="mt-4 px-2">

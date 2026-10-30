@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\SiteSetting;
 use App\Helpers\HijriHelper;
+use App\Services\GeoVisitorIntelligenceService;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -25,7 +26,7 @@ class DashboardController extends Controller
             // Active Live Users calculation
             $liveData = self::getRealtimeLiveVisitorsCount();
             $liveByIdentity = $liveData['byIdentity'];
-            $totalReadsCount = (int) QuestionAndAnswer::sum('views');
+            $totalReadsCount = \App\Services\GlobalVisitorAnalyticsService::getKnowledgeViews();
             $liveByIp = $liveData['byIp'];
 
             // Core stats
@@ -189,49 +190,20 @@ class DashboardController extends Controller
     }
 
     /**
-     * Display a comprehensive listing of all global visitors
+     * Display a comprehensive listing of all global visitors & 3D Interactive Earth Map
      */
     public function visitorInsights(Request $request)
     {
-        $totalAudience = max(20, (int) QuestionAndAnswer::sum('views') + QuestionAndAnswer::count() * 8);
+        $period = $request->get('period', 'all');
+        if (!in_array($period, ['today', '7d', '30d', 'all'], true)) {
+            $period = 'all';
+        }
 
-        $countryDataset = collect([
-            (object)['country' => 'India', 'country_code' => 'IN', 'count' => (int) round($totalAudience * 0.58)],
-            (object)['country' => 'United Arab Emirates', 'country_code' => 'AE', 'count' => (int) round($totalAudience * 0.16)],
-            (object)['country' => 'Saudi Arabia', 'country_code' => 'SA', 'count' => (int) round($totalAudience * 0.10)],
-            (object)['country' => 'United Kingdom', 'country_code' => 'GB', 'count' => (int) round($totalAudience * 0.05)],
-            (object)['country' => 'Qatar', 'country_code' => 'QA', 'count' => (int) round($totalAudience * 0.04)],
-            (object)['country' => 'Oman', 'country_code' => 'OM', 'count' => (int) round($totalAudience * 0.03)],
-            (object)['country' => 'Kuwait', 'country_code' => 'KW', 'count' => (int) round($totalAudience * 0.02)],
-            (object)['country' => 'Malaysia', 'country_code' => 'MY', 'count' => (int) round($totalAudience * 0.01)],
-            (object)['country' => 'United States', 'country_code' => 'US', 'count' => (int) round($totalAudience * 0.01)],
-        ]);
+        $telemetry = GeoVisitorIntelligenceService::getTelemetryData($period);
 
-        $regionDataset = collect([
-            (object)['region' => 'Kerala', 'country' => 'India', 'count' => (int) round($totalAudience * 0.45)],
-            (object)['region' => 'Dubai Emirate', 'country' => 'United Arab Emirates', 'count' => (int) round($totalAudience * 0.11)],
-            (object)['region' => 'Maharashtra', 'country' => 'India', 'count' => (int) round($totalAudience * 0.08)],
-            (object)['region' => 'Riyadh Province', 'country' => 'Saudi Arabia', 'count' => (int) round($totalAudience * 0.06)],
-            (object)['region' => 'Greater London', 'country' => 'United Kingdom', 'count' => (int) round($totalAudience * 0.05)],
-            (object)['region' => 'Abu Dhabi', 'country' => 'United Arab Emirates', 'count' => (int) round($totalAudience * 0.04)],
-            (object)['region' => 'Doha', 'country' => 'Qatar', 'count' => (int) round($totalAudience * 0.04)],
-            (object)['region' => 'Makkah Province', 'country' => 'Saudi Arabia', 'count' => (int) round($totalAudience * 0.03)],
-            (object)['region' => 'Muscat', 'country' => 'Oman', 'count' => (int) round($totalAudience * 0.02)],
-        ]);
-
-        $cityDataset = collect([
-            (object)['city' => 'Calicut (Kozhikode)', 'region' => 'Kerala', 'country' => 'India', 'location' => 'Kerala, India', 'count' => (int) round($totalAudience * 0.22)],
-            (object)['city' => 'Malappuram', 'region' => 'Kerala', 'country' => 'India', 'location' => 'Kerala, India', 'count' => (int) round($totalAudience * 0.18)],
-            (object)['city' => 'Dubai', 'region' => 'Dubai', 'country' => 'United Arab Emirates', 'location' => 'Dubai, UAE', 'count' => (int) round($totalAudience * 0.11)],
-            (object)['city' => 'Mumbai', 'region' => 'Maharashtra', 'country' => 'India', 'location' => 'Maharashtra, India', 'count' => (int) round($totalAudience * 0.07)],
-            (object)['city' => 'Riyadh', 'region' => 'Riyadh Province', 'country' => 'Saudi Arabia', 'location' => 'Riyadh, Saudi Arabia', 'count' => (int) round($totalAudience * 0.06)],
-            (object)['city' => 'London', 'region' => 'Greater London', 'country' => 'United Kingdom', 'location' => 'Greater London, UK', 'count' => (int) round($totalAudience * 0.05)],
-            (object)['city' => 'Doha', 'region' => 'Doha', 'country' => 'Qatar', 'location' => 'Doha, Qatar', 'count' => (int) round($totalAudience * 0.04)],
-            (object)['city' => 'Abu Dhabi', 'region' => 'Abu Dhabi', 'country' => 'United Arab Emirates', 'location' => 'Abu Dhabi, UAE', 'count' => (int) round($totalAudience * 0.04)],
-            (object)['city' => 'Kochi (Cochin)', 'region' => 'Kerala', 'country' => 'India', 'location' => 'Kerala, India', 'count' => (int) round($totalAudience * 0.03)],
-            (object)['city' => 'Jeddah', 'region' => 'Makkah Province', 'country' => 'Saudi Arabia', 'location' => 'Makkah, Saudi Arabia', 'count' => (int) round($totalAudience * 0.03)],
-            (object)['city' => 'Muscat', 'region' => 'Muscat', 'country' => 'Oman', 'location' => 'Muscat, Oman', 'count' => (int) round($totalAudience * 0.02)],
-        ]);
+        $countryDataset = collect(array_map(fn($item) => (object)$item, $telemetry['countries']));
+        $regionDataset = collect(array_map(fn($item) => (object)$item, $telemetry['regions']));
+        $cityDataset = collect(array_map(fn($item) => (object)$item, $telemetry['cities']));
 
         $countriesPage = (int) $request->get('country_page', 1);
         $regionsPage = (int) $request->get('region_page', 1);
@@ -261,7 +233,25 @@ class DashboardController extends Controller
             ['path' => route('admin.visitor.insights'), 'pageName' => 'city_page']
         );
 
-        return view('admin.analytics.visitors', compact('countries', 'regions', 'cities'));
+        $summary = $telemetry['summary'];
+        $initialGlobeData = json_encode($telemetry);
+
+        return view('admin.analytics.visitors', compact('countries', 'regions', 'cities', 'summary', 'initialGlobeData', 'period'));
+    }
+
+    /**
+     * API endpoint for 3D Globe telemetry by time horizon
+     */
+    public function visitorInsightsGlobeApi(Request $request)
+    {
+        $period = $request->get('period', 'all');
+        if (!in_array($period, ['today', '7d', '30d', 'all'], true)) {
+            $period = 'all';
+        }
+
+        $telemetry = GeoVisitorIntelligenceService::getTelemetryData($period);
+
+        return response()->json($telemetry);
     }
 
     /**
@@ -271,8 +261,10 @@ class DashboardController extends Controller
     {
         $hijriAdjustment = SiteSetting::get('hijri_adjustment', 0);
         $currentHijri = HijriHelper::now('j F Y');
+        $lunarMonth = HijriHelper::now('F');
+        $showHijriPublic = (bool) SiteSetting::get('show_hijri_public', true);
 
-        return view('admin.settings.system', compact('hijriAdjustment', 'currentHijri'));
+        return view('admin.settings.system', compact('hijriAdjustment', 'currentHijri', 'lunarMonth', 'showHijriPublic'));
     }
 
     public function updateSettings(Request $request)
@@ -282,7 +274,7 @@ class DashboardController extends Controller
         }
 
         if ($request->has('show_hijri_public')) {
-            SiteSetting::set('show_hijri_public', $request->show_hijri_public, 'boolean');
+            SiteSetting::set('show_hijri_public', (bool) $request->show_hijri_public, 'boolean');
         }
 
         // Admin Account Update
@@ -341,6 +333,31 @@ class DashboardController extends Controller
     public function liveUsersApi()
     {
         $data = self::getRealtimeLiveVisitorsCount();
+
+        $onlineMuftis = User::whereHas('role', fn($q) => $q->where('name', 'mufti'))
+            ->where('last_seen_at', '>=', now()->subMinutes(5))
+            ->withCount([
+                'assignedQuestions as pending_count' => fn($q) => $q->where('status', 'assigned'),
+                'assignedQuestions as total_assigned',
+            ])
+            ->orderBy('mufti_sort_order')
+            ->latest('last_seen_at')
+            ->get()
+            ->map(function ($m) {
+                return [
+                    'id'            => $m->id,
+                    'name'          => $m->name,
+                    'avatar'        => $m->avatar ? asset($m->avatar) : 'https://ui-avatars.com/api/?name=' . urlencode($m->name) . '&background=102B43&color=fff&size=60',
+                    'history_url'   => route('admin.muftis.history', $m),
+                    'start_time'    => ($m->last_login_at ?? now())->timestamp * 1000,
+                    'pending_count' => (int) $m->pending_count,
+                    'last_seen'     => $m->last_seen_at ? $m->last_seen_at->diffForHumans(null, true) : 'Active',
+                ];
+            });
+
+        $data['onlineMuftis'] = $onlineMuftis;
+        $data['onlineMuftisCount'] = $onlineMuftis->count();
+
         return response()->json($data);
     }
 

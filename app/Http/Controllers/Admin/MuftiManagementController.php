@@ -16,7 +16,7 @@ class MuftiManagementController extends Controller
     /** List all scholars with the 'mufti' role */
     public function index()
     {
-        $muftis = User::whereHas('role', fn($q) => $q->where('name', 'mufti'))
+        $query = User::whereHas('role', fn($q) => $q->where('name', 'mufti'))
             ->withCount([
                 'assignedQuestions as total_assigned',
                 'assignedQuestions as pending_count' => fn($q) => $q->where('status', 'assigned'),
@@ -24,15 +24,34 @@ class MuftiManagementController extends Controller
                 'assignedQuestions as published_count' => fn($q) => $q->where('status', 'published'),
                 'assignedQuestions as total_answers' => fn($q) => $q->whereIn('status', ['answered', 'approved', 'published']),
             ])
-            ->orderByRaw('CASE WHEN last_seen_at >= ? THEN 1 ELSE 0 END DESC', [now()->subMinutes(5)])
-            ->orderBy('mufti_sort_order')
+            ->selectSub(function ($q) {
+                $q->from('user_login_logs')
+                    ->whereColumn('user_login_logs.user_id', 'users.id')
+                    ->selectRaw('COALESCE(SUM(duration_seconds), 0)');
+            }, 'total_time_spent')
+            // 1. Scholars who never logged in are placed at the very end
+            ->orderByRaw('CASE WHEN (users.last_login_at IS NOT NULL OR users.login_count > 0) THEN 0 ELSE 1 END ASC')
+            // 2. Profile image priority: scholars with custom profile image get higher priority
+            ->orderByRaw('CASE WHEN (users.avatar IS NOT NULL AND users.avatar != "" AND users.avatar != "default.png") THEN 0 ELSE 1 END ASC')
+            // 3. Highest published fatwas ("King" status)
+            ->orderByDesc('published_count')
+            // 4. Platform usage and engagement
+            ->orderByDesc('total_time_spent')
+            ->orderByDesc('login_count')
+            // 5. Recent activity
             ->latest('last_seen_at')
-            ->paginate(12);
+            ->latest('last_login_at')
+            ->orderBy('users.id');
 
-        $muftis->getCollection()->each(function ($mufti) {
+        $muftis = $query->paginate(8);
+
+        $isSqlite = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite';
+        $diffSql = $isSqlite ? 'ROUND(AVG(julianday(updated_at) - julianday(created_at)), 1)' : 'AVG(DATEDIFF(updated_at, created_at))';
+
+        $muftis->getCollection()->each(function ($mufti) use ($diffSql) {
             $mufti->avg_days = \App\Models\QuestionAndAnswer::where('assigned_mufti_id', $mufti->id)
                 ->whereIn('status', ['answered', 'approved', 'published'])
-                ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg')
+                ->selectRaw("{$diffSql} as avg")
                 ->value('avg');
             $mufti->avg_days = $mufti->avg_days ? round($mufti->avg_days, 1) : null;
         });
