@@ -195,6 +195,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
     Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
     Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+    Route::patch('/categories/{category}/toggle-status', [CategoryController::class, 'toggleStatus'])->name('categories.toggle-status');
 
     // Madhabs
     Route::get('/madhabs', [\App\Http\Controllers\Admin\MadhabController::class, 'index'])->name('madhabs.index');
@@ -223,6 +224,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     // Questioner Management
     Route::get('/questioners', [\App\Http\Controllers\Admin\QuestionerController::class, 'index'])->name('questioners.index');
+    Route::post('/questioners/export-selected', [\App\Http\Controllers\Admin\QuestionerController::class, 'exportSelected'])->name('questioners.export-selected');
     Route::get('/questioners/{user}', [\App\Http\Controllers\Admin\QuestionerController::class, 'show'])->name('questioners.show');
 
     // Site Settings

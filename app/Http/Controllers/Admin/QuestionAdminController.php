@@ -52,7 +52,7 @@ class QuestionAdminController extends Controller
         }
 
         if ($request->filled('assigned_to')) {
-            $query->where('assigned_to', $request->assigned_to);
+            $query->where('assigned_mufti_id', $request->assigned_to);
         }
 
         $questions = $query->paginate(20)->withQueryString();
@@ -216,7 +216,7 @@ class QuestionAdminController extends Controller
     /** Admin writes or edits answer on behalf of Mufti */
     public function createAnswer(QuestionAndAnswer $question)
     {
-        $question->load('user', 'references');
+        $question->load(['user', 'references', 'draftReferences', 'category', 'madhab', 'assignedMufti']);
         
         $madhab = $question->madhab;
         $muftis = User::whereHas('role', fn($q) => $q->where('name', 'mufti'))

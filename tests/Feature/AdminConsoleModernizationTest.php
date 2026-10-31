@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
 use App\Models\Madhab;
 use App\Models\QuestionAndAnswer;
 use App\Models\Role;
@@ -60,6 +61,15 @@ class AdminConsoleModernizationTest extends TestCase
         $response->assertSee('Questioner');
         $response->assertSee('Question Summary');
         $response->assertSee('Assigned To');
+
+        // Test filtering by assigned_to and status (reproducing /admin/questions?search=&status=published&madhab_id=&assigned_to=4)
+        $filterResponse = $this->actingAs($admin)->get(route('admin.questions.index', [
+            'search'      => '',
+            'status'      => 'published',
+            'madhab_id'   => '',
+            'assigned_to' => 4,
+        ]));
+        $filterResponse->assertStatus(200);
     }
 
     public function test_pending_question_always_displays_as_unassigned_in_question_lists_and_views(): void
@@ -376,6 +386,77 @@ class AdminConsoleModernizationTest extends TestCase
         $response->assertSee('Main Category');
         $response->assertSee('Cancel');
         $response->assertSee('Accept &amp; Save', false);
+    }
+
+    public function test_write_answer_workspace_renders_modern_authoring_ui(): void
+    {
+        $admin = $this->getOrCreateAdmin();
+
+        $userRole = Role::firstOrCreate(['name' => 'user', 'guard_name' => 'web']);
+        $questioner = User::firstOrCreate(['email' => 'answer_ui_test@gmail.com'], [
+            'name'       => 'Sayyid Haris',
+            'despl_name' => 'Sayyid Haris',
+            'password'   => bcrypt('password123'),
+            'role_id'    => $userRole->id,
+            'is_active'  => 1,
+        ]);
+
+        $madhab = Madhab::firstOrCreate(['name' => 'Shafi\'i']);
+        $category = Category::firstOrCreate(['slug' => 'test-cat-answer-' . time()], [
+            'name'      => 'Slaughter & Food Rulings',
+            'is_active' => 1,
+        ]);
+
+        $question = QuestionAndAnswer::create([
+            'question_id' => 'Q1192_TEST',
+            'user_id'     => $questioner->id,
+            'madhab_id'   => $madhab->id,
+            'category_id' => $category->id,
+            'title'       => 'അറവ് സംബന്ധമായ സംശയം',
+            'body'        => '<p>ഇസ്ലാമിക രീതിയിലുള്ള അറവിന്റെ ശരിയായ നിയമങ്ങൾ എന്തെല്ലാമാണ്?</p>',
+            'status'      => 'accepted',
+            'language'    => 'Malayalam',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.questions.answer', $question));
+        $response->assertStatus(200);
+
+        // Assert Header elements
+        $response->assertSee('Write Fatwa Answer');
+        $response->assertSee('#Q1192_TEST');
+        $response->assertSee('Back to Question');
+
+        // Assert Quick Context Bar
+        $response->assertSee('Sayyid Haris');
+        $response->assertSee('answer_ui_test@gmail.com');
+        $response->assertSee('Slaughter &amp; Food Rulings', false);
+        $response->assertSee('Shafi\'i');
+
+        // Assert Main Authoring Cards
+        $response->assertSee('Question Inquiry & Summary');
+        $response->assertSee('Scholarly Fatwa Answer');
+        $response->assertSee('Reference Fatwa');
+        $response->assertSee('min chars');
+        $response->assertSee('Supporting Islamic References');
+        $response->assertSee('Add Reference');
+
+        // Assert Sidebar Cards
+        $response->assertSee('Publishing Actions');
+        $response->assertSee('Save &amp; Proceed', false);
+        $response->assertSee('Scholar & Language');
+        $response->assertSee('Answering Mufti');
+        $response->assertSee('Archive Thumbnail');
+        $response->assertSee('Editorial Checklist');
+
+        // Assert AI "Question Inquiry & Summary" ChatGPT Button & Script
+        $response->assertSee('btnAiQuestionSummary');
+        $response->assertSee('sendQuestionSummaryToChatGPT');
+        $response->assertSee('chatgpt.com');
+        $response->assertSee('chatGptPromptModal');
+        $response->assertSee('1. Conclusive Ruling');
+
+        // Clean up
+        $question->delete();
     }
 
     public function test_visitor_insights_page_renders_interactive_globe_and_telemetry(): void

@@ -62,6 +62,7 @@
             --primary-blue-hover: #1D4ED8;
             --text-heading: #172033;
             --text-sub: #64748B;
+            --admin-footer-h: 42px;
         }
 
         body {
@@ -391,7 +392,51 @@
         /* ── Workspace Page Content ── */
         .page-content-wrapper {
             padding: 1.75rem 1.85rem;
+            padding-bottom: calc(var(--admin-footer-h) + 1.75rem) !important;
             flex-grow: 1;
+        }
+
+        /* ── Global Fixed Footer ── */
+        .admin-global-fixed-footer {
+            position: fixed;
+            bottom: 0;
+            left: var(--sidebar-w);
+            right: 0;
+            height: var(--admin-footer-h);
+            background: #FFFFFF;
+            border-top: 1px solid var(--card-border);
+            z-index: 1020;
+            display: flex;
+            align-items: center;
+            padding: 0 1.85rem;
+            font-size: 0.78rem;
+            color: var(--text-sub);
+            box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.02);
+            transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .admin-footer-inner {
+            width: 100%;
+        }
+
+        .developer-credit-badge {
+            display: inline-flex;
+            align-items: center;
+            background: #EFF6FF;
+            color: #2563EB;
+            border: 1px solid #BFDBFE;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            line-height: 1.3;
+            letter-spacing: 0.2px;
+        }
+
+        @media print {
+            .admin-global-fixed-footer {
+                display: none !important;
+            }
         }
 
         /* ── Modern Cards & Panels ── */
@@ -585,6 +630,19 @@
 
             .main-content {
                 margin-left: 0;
+            }
+
+            .admin-global-fixed-footer {
+                left: 0;
+                padding: 0 1rem;
+                height: auto;
+                min-height: var(--admin-footer-h);
+                padding-top: 0.35rem;
+                padding-bottom: 0.35rem;
+            }
+
+            .page-content-wrapper {
+                padding-bottom: calc(var(--admin-footer-h) + 2.5rem) !important;
             }
 
             body.sidebar-open .sidebar {
@@ -994,17 +1052,10 @@
 
             @yield('content')
 
-            {{-- Footer --}}
-            <footer class="mt-5 pt-4 pb-2 border-top d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 text-muted small no-print">
-                <div>
-                    &copy; {{ date('Y') }} <strong>Darul Ifta Kauzariyya</strong>. All rights reserved.
-                </div>
-                <div>
-                    <span>App created & developed by</span>
-                    <a href="https://www.harisim.site" target="_blank" rel="noopener noreferrer" class="fw-bold text-decoration-none ms-1 px-2.5 py-1 rounded" style="color: var(--primary-blue); background: #EFF6FF; border: 1px solid #DBEAFE;">MUFTI Haris I M</a>
-                </div>
-            </footer>
-        </main>
+            </main>
+
+        {{-- Global Fixed Footer --}}
+        @include('components.admin-footer')
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
