@@ -242,7 +242,7 @@
                     $words = explode(' ', trim($qName));
                     $initials = '';
                     foreach (array_slice($words, 0, 2) as $w) {
-                        $initials .= strtoupper(substr($w, 0, 1));
+                        $initials .= mb_strtoupper(mb_substr($w, 0, 1, 'UTF-8'), 'UTF-8');
                     }
                     $initials = $initials ?: 'U';
 
@@ -253,14 +253,15 @@
                     if ($sName) {
                         $sWords = explode(' ', trim($sName));
                         foreach (array_slice($sWords, 0, 2) as $sw) {
-                            $sInitials .= strtoupper(substr($sw, 0, 1));
+                            $sInitials .= mb_strtoupper(mb_substr($sw, 0, 1, 'UTF-8'), 'UTF-8');
                         }
                     }
 
                     // Avatar color variants
                     $colorPalette = ['#EFF6FF;#2563EB', '#FAF5FF;#9333EA', '#ECFDF5;#059669', '#FFFBEB;#D97706', '#F0FDF4;#16A34A'];
-                    $colorIdx = crc32($qName) % count($colorPalette);
-                    [$avatarBg, $avatarText] = explode(';', $colorPalette[$colorIdx]);
+                    $colorIdx = abs(crc32((string) $qName)) % count($colorPalette);
+                    $colorPair = $colorPalette[$colorIdx] ?? $colorPalette[0];
+                    [$avatarBg, $avatarText] = explode(';', $colorPair);
                 @endphp
                 <tr>
                     {{-- Row Checkbox --}}
@@ -458,7 +459,10 @@
                                     class="btn btn-sm btn-outline-danger p-1 d-inline-flex align-items-center justify-content-center" 
                                     style="width: 30px; height: 30px; border-radius: 8px; border-color: #FECDD3; background: #FFF1F2;"
                                     title="High-Security Delete"
-                                    onclick="openSecurityDeleteModal({{ $q->id }}, '{{ $q->question_id }}', '{{ addslashes(strip_tags($q->title ?: $q->body)) }}')">
+                                    data-qid="{{ $q->id }}"
+                                    data-qcode="{{ $q->question_id }}"
+                                    data-qtitle="{{ strip_tags($q->title ?: $q->body) }}"
+                                    onclick="triggerSecurityDelete(this)">
                                 <i class="bi bi-trash3" style="font-size: 0.82rem;"></i>
                             </button>
                         </div>
@@ -493,6 +497,8 @@
     </div>
 </div>
 
+<x-fatwa-delete-security-modal />
+
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -504,6 +510,33 @@
             });
         }
     });
+
+    function triggerSecurityDelete(btn) {
+        const qid = btn.getAttribute('data-qid');
+        const qcode = btn.getAttribute('data-qcode');
+        const qtitle = btn.getAttribute('data-qtitle');
+        if (typeof openSecurityDeleteModal === 'function') {
+            openSecurityDeleteModal(qid, qcode, qtitle);
+        } else {
+            if (confirm('Are you sure you want to delete inquiry ' + qcode + '?')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ url("/admin/questions") }}/' + qid;
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = '{{ csrf_token() }}';
+                const method = document.createElement('input');
+                method.type = 'hidden';
+                method.name = '_method';
+                method.value = 'DELETE';
+                form.appendChild(csrf);
+                form.appendChild(method);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+    }
 </script>
 @endpush
 

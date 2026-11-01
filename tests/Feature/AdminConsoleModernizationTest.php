@@ -699,4 +699,46 @@ class AdminConsoleModernizationTest extends TestCase
         $topMufti->delete();
         $inactiveMufti->delete();
     }
+
+    public function test_mufti_activity_page_renders_prominent_ifta_work_score(): void
+    {
+        $admin = $this->getOrCreateAdmin();
+
+        $muftiRole = Role::firstOrCreate(['name' => 'mufti']);
+        $mufti = User::create([
+            'name'        => 'Mufti Activity Tester',
+            'despl_name'  => 'Mufti Activity Tester',
+            'email'       => 'mufti_activity_' . time() . '@darulifta.local',
+            'password'    => bcrypt('password123'),
+            'role_id'     => $muftiRole->id,
+            'is_active'   => 1,
+            'login_count' => 12,
+        ]);
+
+        // Create 2 answered and 1 published questions for this mufti
+        for ($i = 1; $i <= 3; $i++) {
+            QuestionAndAnswer::create([
+                'question_id'       => 'Q_ACT_' . time() . '_' . $i,
+                'title'             => 'Activity Test Fatwa ' . $i,
+                'slug'              => 'activity-test-fatwa-' . time() . '-' . $i,
+                'body'              => '<p>Content</p>',
+                'answer'            => 'Ruling explanation',
+                'status'            => $i === 3 ? 'published' : 'answered',
+                'user_id'           => $admin->id,
+                'assigned_mufti_id' => $mufti->id,
+            ]);
+        }
+
+        $response = $this->actingAs($admin)->get(route('admin.muftis.activity', $mufti));
+        $response->assertStatus(200);
+
+        // Assert Ifta Work Score is rendered prominently in hero, main card, and sidebar
+        $response->assertSee('Ifta Work Score');
+        $response->assertSee('%');
+        $response->assertSee('Performance Benchmark');
+
+        // Clean up
+        QuestionAndAnswer::where('assigned_mufti_id', $mufti->id)->delete();
+        $mufti->delete();
+    }
 }

@@ -50,6 +50,10 @@
                                 <span class="fw-medium font-inter">{{ $user->email }}</span>
                             </div>
                             <div class="d-flex flex-wrap gap-2">
+                                <span class="glass-pill gold-border" style="background: rgba(255, 215, 0, 0.18); border: 1px solid rgba(255, 215, 0, 0.5);">
+                                    <i class="bi bi-award-fill text-warning me-1"></i>Ifta Work Score: <strong class="text-white font-inter">{{ $work_score }}%</strong>
+                                    <span class="badge rounded-pill ms-1" style="background: {{ $score_color }}; font-size: 0.68rem;">{{ $score_tier }}</span>
+                                </span>
                                 <span class="glass-pill"><i class="bi bi-box-arrow-in-right me-1 text-warning"></i>{{ number_format($user->login_count ?? 0) }} Total Logins</span>
                                 <span class="glass-pill"><i class="bi bi-clock-history me-1"></i>Last Login: {{ $user->last_login_at ? $user->last_login_at->diffForHumans() : 'Never' }}</span>
                                 <span class="glass-pill"><i class="bi bi-book me-1"></i>{{ $user->madhab?->name ? $user->madhab->name . ' Madhab' : 'Islamic Jurisprudence' }}</span>
@@ -75,6 +79,57 @@
     <div class="row g-4">
         {{-- Main Activity Column --}}
         <div class="col-lg-8">
+            {{-- Prominent Ifta Work Score Hero Banner --}}
+            <div class="card border-0 shadow-sm mb-4 ifta-score-hero-card" style="border-radius: 20px; background: #FFFFFF;">
+                <div class="card-body p-4 position-relative">
+                    <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-4">
+                        <div class="d-flex align-items-center gap-3.5">
+                            {{-- Circular Progress Ring Gauge --}}
+                            <div class="position-relative flex-shrink-0" style="width: 90px; height: 90px;">
+                                <svg class="w-100 h-100" viewBox="0 0 36 36" style="transform: rotate(-90deg);">
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#E2E8F0" stroke-width="3.5"></path>
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="{{ $score_color }}" stroke-dasharray="{{ $work_score }}, 100" stroke-linecap="round" stroke-width="3.5"></path>
+                                </svg>
+                                <div class="position-absolute top-50 start-50 translate-middle text-center">
+                                    <span class="fw-black text-dark font-inter" style="font-size: 1.35rem; line-height: 1;">{{ $work_score }}%</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <h5 class="fw-black text-dark mb-0 font-inter">Ifta Work Score</h5>
+                                    <span class="badge rounded-pill fw-bold" style="background: {{ $score_color }}; color: #fff; font-size: 0.72rem; padding: 4px 10px;">
+                                        <i class="bi bi-stars me-1"></i>{{ $score_tier }}
+                                    </span>
+                                </div>
+                                <p class="text-muted small mb-0" style="max-width: 440px; font-size: 0.8rem; line-height: 1.5;">
+                                    Comprehensive scholarly benchmark evaluating fatwa publication volume, answered inquiries, turnaround speed, and platform engagement.
+                                </p>
+                            </div>
+                        </div>
+
+                        {{-- Quick 3-Metric Score Breakdown --}}
+                        <div class="d-flex align-items-center gap-2 flex-wrap flex-sm-nowrap">
+                            <div class="px-3 py-2 bg-light rounded-3 text-center border" style="min-width: 85px;">
+                                <div class="text-muted small" style="font-size: 0.68rem; text-transform: uppercase; font-weight: 700;">Published</div>
+                                <span class="fw-bold font-inter fs-6 text-dark">{{ $stats['published'] }}</span>
+                                <span class="d-block text-muted" style="font-size: 0.65rem;">{{ $scoreData['pub_points'] ?? 0 }}/35 pts</span>
+                            </div>
+                            <div class="px-3 py-2 bg-light rounded-3 text-center border" style="min-width: 85px;">
+                                <div class="text-muted small" style="font-size: 0.68rem; text-transform: uppercase; font-weight: 700;">Answered</div>
+                                <span class="fw-bold font-inter fs-6 text-dark">{{ $stats['answered'] }}</span>
+                                <span class="d-block text-muted" style="font-size: 0.65rem;">{{ $scoreData['ans_points'] ?? 0 }}/30 pts</span>
+                            </div>
+                            <div class="px-3 py-2 bg-light rounded-3 text-center border" style="min-width: 85px;">
+                                <div class="text-muted small" style="font-size: 0.68rem; text-transform: uppercase; font-weight: 700;">Avg Speed</div>
+                                <span class="fw-bold font-inter fs-6 text-dark">{{ round($avg_days, 1) }}d</span>
+                                <span class="d-block text-muted" style="font-size: 0.65rem;">Turnaround</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {{-- Question Metrics: Workflow Redesign --}}
             <div class="card border-0 shadow-sm mb-4 metric-card-main">
                 <div class="card-body p-4 p-lg-5">
@@ -233,59 +288,62 @@
             </div>
 
             {{-- Ifta Work Score --}}
-            <div class="card border-0 shadow-lg h-100" style="border-radius: 20px;">
+            <div class="card border-0 shadow-sm mb-4" style="border-radius: 20px; background: #FFFFFF;">
                 <div class="card-body p-4">
-                    <div class="text-center mb-5 mt-2">
-                        <div class="badge-premium mb-3">
+                    <div class="text-center mb-4 mt-1">
+                        <div class="badge-premium mb-2" style="background: rgba(255, 193, 7, 0.1); border-color: rgba(255, 193, 7, 0.25); color: #856404;">
                             <i class="bi bi-stars me-1 text-warning"></i>Performance Benchmark
                         </div>
-                        <h5 class="fw-bold text-muted text-uppercase tracking-widest small">Ifta Work Score</h5>
+                        <h6 class="fw-bold text-dark text-uppercase tracking-widest small mb-1">Ifta Work Score</h6>
+                        <span class="badge rounded-pill fw-bold" style="background: {{ $score_color }}; color: #fff; font-size: 0.72rem; padding: 4px 12px;">
+                            {{ $score_tier }}
+                        </span>
                     </div>
                     
-                    <div class="score-display-radial mx-auto mb-5">
+                    <div class="score-display-radial mx-auto mb-4" style="background: conic-gradient({{ $score_color }} {{ min(100, $work_score) }}%, #F1F5F9 0);">
                         <div class="score-outer-ring">
                             <div class="score-inner-content">
-                                <span class="score-number fw-black text-dark display-4">{{ $work_score }}</span>
-                                <span class="score-label text-muted fw-bold">POINTS</span>
+                                <span class="score-number fw-black text-dark display-4 font-inter">{{ $work_score }}%</span>
+                                <span class="score-label fw-bold" style="color: {{ $score_color }}; letter-spacing: 1px;">INDEX SCORE</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="stats-grid mt-4">
-                        <div class="stat-item p-3 rounded-4 bg-light mb-3">
+                        <div class="stat-item p-3 rounded-4 bg-light mb-3 border">
                             <div class="d-flex align-items-center mb-2">
                                 <div class="stat-icon bg-white shadow-sm rounded-3 me-3">
                                     <i class="bi bi-clock-history text-success"></i>
                                 </div>
                                 <div>
                                     <span class="text-muted small d-block">Submission Speed</span>
-                                    <span class="fw-bold text-dark font-inter">{{ $avg_days }} <span class="small fw-normal">Days Avg</span></span>
+                                    <span class="fw-bold text-dark font-inter">{{ round($avg_days, 1) }} <span class="small fw-normal">Days Avg</span></span>
                                 </div>
                             </div>
-                            <div class="progress" style="height: 4px;">
-                                <div class="progress-bar bg-success" style="width: {{ max(10, 100 - ($avg_days * 10)) }}%"></div>
+                            <div class="progress" style="height: 5px; border-radius: 10px;">
+                                <div class="progress-bar bg-success rounded-pill" style="width: {{ max(10, min(100, 100 - ($avg_days * 5))) }}%"></div>
                             </div>
                         </div>
 
-                        <div class="stat-item p-3 rounded-4 bg-light">
+                        <div class="stat-item p-3 rounded-4 bg-light border">
                             <div class="d-flex align-items-center mb-2">
                                 <div class="stat-icon bg-white shadow-sm rounded-3 me-3">
                                     <i class="bi bi-box-arrow-up text-primary"></i>
                                 </div>
                                 <div>
                                     <span class="text-muted small d-block">Answer Volume</span>
-                                    <span class="fw-bold text-dark font-inter">{{ $stats['answered'] }} <span class="small fw-normal">Answers</span></span>
+                                    <span class="fw-bold text-dark font-inter">{{ $stats['answered'] }} <span class="small fw-normal">Answers ({{ $stats['published'] }} Published)</span></span>
                                 </div>
                             </div>
-                            <div class="progress" style="height: 4px;">
-                                <div class="progress-bar bg-primary" style="width: {{ min(100, $stats['answered'] * 2) }}%"></div>
+                            <div class="progress" style="height: 5px; border-radius: 10px;">
+                                <div class="progress-bar bg-primary rounded-pill" style="width: {{ min(100, $stats['answered'] * 5) }}%"></div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="mt-5 p-4 rounded-4 bg-soft-primary border border-primary border-opacity-10 text-center">
-                        <p class="text-primary small mb-0 fw-medium">
-                            The score represents a composite index of scholarly efficiency, platform impact, and community engagement.
+                    <div class="mt-4 p-3 rounded-4 bg-light border text-center">
+                        <p class="text-muted small mb-0" style="font-size: 0.78rem;">
+                            Composite index of fatwa publication, answer velocity, workload resolution, and platform engagement.
                         </p>
                     </div>
                 </div>
@@ -443,13 +501,13 @@
 
     /* Sidebar Score */
     .score-display-radial {
-        width: 200px; height: 200px;
+        width: 190px; height: 190px;
         padding: 10px;
         border-radius: 50%;
-        background: conic-gradient(var(--brand-accent) {{ min(100, $work_score/2) }}%, #f8f9fa 0);
         display: flex;
         align-items: center;
         justify-content: center;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.04);
     }
     .score-outer-ring {
         width: 100%; height: 100%;

@@ -270,27 +270,40 @@ class MuftiManagementController extends Controller
         // 5. Active Track (Currently assigned)
         $active_track = $user->assignedQuestions()->where('status', 'assigned')->count();
 
-        // 6. Ifta Work Score (Efficiency, Speed & Volume Index)
-        // Formula: (Answered * 10) + (Published * 5) + (Likes * 2) - (Avg Days * 5)
+        // 6. Ifta Work Score (Efficiency, Speed & Volume Index — Standardized 100-pt Benchmark)
+        $driver = \DB::connection()->getDriverName();
+        $dateDiffSql = $driver === 'sqlite' 
+            ? 'AVG(julianday(updated_at) - julianday(created_at))' 
+            : 'AVG(DATEDIFF(updated_at, created_at))';
+
         $avg_days = \App\Models\QuestionAndAnswer::where('assigned_mufti_id', $user->id)
             ->whereIn('status', ['answered', 'approved', 'published'])
-            ->selectRaw('AVG(DATEDIFF(updated_at, created_at)) as avg')
+            ->selectRaw("{$dateDiffSql} as avg")
             ->value('avg') ?: 0;
         
-        $score = ($stats['answered'] * 10) + ($stats['published'] * 5) + ($likes * 2);
-        if ($avg_days > 0) {
-            // Penalize high avg days, but keep score positive
-            $score = max(0, $score - ($avg_days * 5));
-        }
+        $reportingService = app(\App\Services\ReportingService::class);
+        $scoreData = $reportingService->calculatePerformanceScore(
+            (int) $stats['assigned'],
+            (int) $stats['answered'],
+            (int) $stats['answered'],
+            (int) $stats['published'],
+            (int) ($user->login_count ?? 0),
+            max(1, (int) ($user->login_count ?? 1))
+        );
 
-        // Normalize score to 100 base if very high, or just show as index
-        $work_score = round($score);
+        $work_score = $scoreData['score'];
+        $score_tier = $scoreData['tier'];
+        $score_color = $scoreData['color'];
 
         $pendingAvatar = Storage::disk('public')->exists("avatars/pending_{$user->id}.jpg") 
             ? asset("storage/avatars/pending_{$user->id}.jpg") 
             : null;
 
-        return view('admin.muftis.activity', compact('user', 'stats', 'topics_count', 'likes', 'views', 'active_track', 'work_score', 'avg_days', 'pendingAvatar'));
+        return view('admin.muftis.activity', compact(
+            'user', 'stats', 'topics_count', 'likes', 'views', 
+            'active_track', 'work_score', 'score_tier', 'score_color', 
+            'scoreData', 'avg_days', 'pendingAvatar'
+        ));
     }
 
     /**

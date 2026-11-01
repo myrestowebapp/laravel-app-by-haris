@@ -31,13 +31,13 @@ if (php_sapi_name() !== 'cli') {
 function get_db_credentials() {
     $envPath = BASE_PATH . '/.env';
     
-    // Default Fallbacks from environment / system config
+    // Credentials must be provided via .env file or environment variables only
     $config = [
-        'host' => '162.214.80.164',
-        'port' => '3306',
-        'database' => 'ensplpmy_ask-fatwa-2026-live-db',
-        'username' => 'ensplpmy_darulifta-lar-use',
-        'password' => 'DaurIfta123@2026'
+        'host' => getenv('DB_HOST') ?: '127.0.0.1',
+        'port' => getenv('DB_PORT') ?: '3306',
+        'database' => getenv('DB_DATABASE') ?: '',
+        'username' => getenv('DB_USERNAME') ?: '',
+        'password' => getenv('DB_PASSWORD') ?: ''
     ];
     
     if (file_exists($envPath)) {

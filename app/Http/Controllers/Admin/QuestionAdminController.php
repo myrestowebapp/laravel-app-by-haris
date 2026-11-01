@@ -52,7 +52,16 @@ class QuestionAdminController extends Controller
         }
 
         if ($request->filled('assigned_to')) {
-            $query->where('assigned_mufti_id', $request->assigned_to);
+            $assignedId = $request->assigned_to;
+            $query->where(function ($q) use ($assignedId) {
+                if (\Illuminate\Support\Facades\Schema::hasColumn('question_and_answer', 'assigned_mufti_id')) {
+                    $q->where('assigned_mufti_id', $assignedId);
+                } elseif (\Illuminate\Support\Facades\Schema::hasColumn('question_and_answer', 'assigned_to')) {
+                    $q->where('assigned_to', $assignedId);
+                } else {
+                    $q->where('assigned_mufti_id', $assignedId);
+                }
+            });
         }
 
         $questions = $query->paginate(20)->withQueryString();
