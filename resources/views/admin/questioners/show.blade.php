@@ -21,11 +21,24 @@
                  width="90" height="90">
             <h6 class="fw-bold mb-1">{{ $user->name }}</h6>
             <small class="text-muted d-block">{{ $user->email }}</small>
+            @if($user->mobile)
+            <small class="text-dark fw-semibold d-block mt-1"><i class="bi bi-telephone-fill text-primary me-1" style="font-size: 0.72rem;"></i>{{ $user->mobile }}</small>
+            @endif
             @if($user->country)
             <small class="text-muted d-block mt-1"><i class="bi bi-geo-alt me-1"></i>{{ $user->country }}</small>
             @endif
             <small class="text-muted d-block mt-1"><i class="bi bi-calendar me-1"></i>Joined {{ $user->created_at->format('M Y') }}</small>
             <small class="text-muted d-block mt-1"><i class="bi bi-translate me-1"></i>{{ $user->mother_language ?? 'Not set' }}</small>
+
+            @if(($stats['total'] ?? 0) === 0)
+            <form method="POST" action="{{ route('admin.questioners.destroy', $user) }}" onsubmit="return confirm('Are you sure you want to permanently delete this questioner profile? This user has no submitted fatwas.');" class="mt-3">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn btn-sm btn-outline-danger w-100 rounded-pill py-1.5 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5">
+                    <i class="bi bi-trash3"></i> Delete Profile (No Fatwas)
+                </button>
+            </form>
+            @endif
         </div>
     </div>
 

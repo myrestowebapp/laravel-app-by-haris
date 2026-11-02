@@ -225,7 +225,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     // Questioner Management
     Route::get('/questioners', [\App\Http\Controllers\Admin\QuestionerController::class, 'index'])->name('questioners.index');
     Route::post('/questioners/export-selected', [\App\Http\Controllers\Admin\QuestionerController::class, 'exportSelected'])->name('questioners.export-selected');
+    Route::delete('/questioners/bulk-delete', [\App\Http\Controllers\Admin\QuestionerController::class, 'bulkDestroy'])->name('questioners.bulk-delete');
     Route::get('/questioners/{user}', [\App\Http\Controllers\Admin\QuestionerController::class, 'show'])->name('questioners.show');
+    Route::delete('/questioners/{user}', [\App\Http\Controllers\Admin\QuestionerController::class, 'destroy'])->name('questioners.destroy');
 
     // Site Settings
     Route::get('/system-settings', [DashboardController::class, 'systemControl'])->name('settings.system');

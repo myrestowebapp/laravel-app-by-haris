@@ -276,6 +276,45 @@
         flex-shrink: 0;
     }
 
+    /* ── Questioner Mobile Tag in Free Space ── */
+    .questioner-mobile-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        color: #1E293B !important;
+        border-radius: 8px;
+        padding: 4px 10px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        white-space: nowrap;
+        text-decoration: none;
+        transition: all 0.15s ease;
+    }
+    .questioner-mobile-tag:hover:not(.is-empty) {
+        background: #EFF6FF;
+        border-color: #BFDBFE;
+        color: #2563EB !important;
+        box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+    }
+    .questioner-mobile-tag i {
+        font-size: 0.74rem;
+        color: #2563EB;
+    }
+    .questioner-mobile-tag.is-empty {
+        background: transparent;
+        border: 1px dashed #E2E8F0;
+        color: #94A3B8 !important;
+        font-weight: 500;
+        font-size: 0.74rem;
+        cursor: default;
+    }
+    .questioner-mobile-tag.is-empty i {
+        color: #94A3B8;
+        opacity: 0.6;
+    }
+
     /* ── Country Flag SVGs ── */
     .country-flag-badge {
         display: inline-flex;
@@ -326,7 +365,7 @@
         border: 1.5px solid #BFDBFE;
         color: #2563EB !important;
         border-radius: 8px;
-        padding: 0.35rem 0.95rem;
+        padding: 0.35rem 0.85rem;
         font-size: 0.80rem;
         font-weight: 600;
         text-decoration: none;
@@ -337,6 +376,28 @@
         border-color: #93C5FD;
         color: #1D4ED8 !important;
         box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+    }
+
+    /* ── Action Delete Button (No Fatwas) ── */
+    .btn-action-delete {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 31px;
+        background: #FFFFFF;
+        border: 1.5px solid #FECACA;
+        color: #DC2626 !important;
+        border-radius: 8px;
+        font-size: 0.80rem;
+        transition: all 0.15s ease;
+        cursor: pointer;
+    }
+    .btn-action-delete:hover {
+        background: #FEF2F2;
+        border-color: #F87171;
+        color: #B91C1C !important;
+        box-shadow: 0 1px 3px rgba(220, 38, 38, 0.15);
     }
 
     /* ── Pagination Elements ── */
@@ -723,7 +784,7 @@
                     </th>
 
                     {{-- Action: Center --}}
-                    <th style="width: 105px;" class="text-center">Action</th>
+                    <th style="width: 125px;" class="text-center">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -760,23 +821,40 @@
                         {{ ($questioners->firstItem() ?? 0) + $loop->index }}
                     </td>
 
-                    {{-- Identity: Left (Avatar + Bold Name + Muted Email/Contact) --}}
+                    {{-- Identity: Left (Avatar + Bold Name + Muted Email + Mobile Tag in Free Space) --}}
                     <td class="text-start">
-                        <div class="d-flex align-items-center gap-3">
-                            @if($user->avatar)
-                                <img src="{{ asset($user->avatar) }}" class="avatar-circle-icon shadow-xs" width="38" height="38" style="object-fit: cover;">
-                            @else
-                                <div class="avatar-circle-icon shadow-xs" style="background: {{ $colorTheme['bg'] }}; color: {{ $colorTheme['text'] }};">
-                                    {{ $initials }}
+                        <div class="d-flex align-items-center justify-content-between gap-3">
+                            <div class="d-flex align-items-center gap-3">
+                                @if($user->avatar)
+                                    <img src="{{ asset($user->avatar) }}" class="avatar-circle-icon shadow-xs" width="38" height="38" style="object-fit: cover;">
+                                @else
+                                    <div class="avatar-circle-icon shadow-xs" style="background: {{ $colorTheme['bg'] }}; color: {{ $colorTheme['text'] }};">
+                                        {{ $initials }}
+                                    </div>
+                                @endif
+                                <div class="overflow-hidden">
+                                    <div class="fw-bold text-dark text-truncate" style="max-width: 250px; font-size: 0.88rem; line-height: 1.3;">
+                                        {{ $displayName }}
+                                    </div>
+                                    <div class="text-muted text-truncate" style="font-size: 0.77rem; max-width: 250px; line-height: 1.2; margin-top: 2px;">
+                                        <i class="bi bi-envelope text-slate-400 me-1" style="font-size: 0.72rem;"></i>{{ $user->email ?: 'No email recorded' }}
+                                    </div>
                                 </div>
-                            @endif
-                            <div class="overflow-hidden">
-                                <div class="fw-bold text-dark text-truncate" style="max-width: 260px; font-size: 0.88rem; line-height: 1.3;">
-                                    {{ $displayName }}
-                                </div>
-                                <div class="text-muted text-truncate" style="font-size: 0.77rem; max-width: 260px; line-height: 1.2; margin-top: 2px;">
-                                    {{ $user->email ?: ($user->mobile ?: 'No email recorded') }}
-                                </div>
+                            </div>
+
+                            {{-- Mobile Number Tag (Utilizing the free space beside profile) --}}
+                            <div class="ms-auto pe-2">
+                                @if($user->mobile)
+                                    <a href="tel:{{ $user->mobile }}" class="questioner-mobile-tag" title="Call or copy: {{ $user->mobile }}">
+                                        <i class="bi bi-telephone-fill"></i>
+                                        <span>{{ $user->mobile }}</span>
+                                    </a>
+                                @else
+                                    <span class="questioner-mobile-tag is-empty" title="No mobile number registered">
+                                        <i class="bi bi-telephone"></i>
+                                        <span>No mobile</span>
+                                    </span>
+                                @endif
                             </div>
                         </div>
                     </td>
@@ -820,12 +898,25 @@
 
                     {{-- Action: Center --}}
                     <td class="text-center">
-                        <a href="{{ route('admin.questioners.show', $user) }}" 
-                           class="btn-action-view" 
-                           title="View Questioner Dossier">
-                            <i class="bi bi-eye"></i>
-                            <span>View</span>
-                        </a>
+                        <div class="d-inline-flex align-items-center gap-1.5 justify-content-center">
+                            <a href="{{ route('admin.questioners.show', $user) }}" 
+                               class="btn-action-view" 
+                               title="View Questioner Dossier">
+                                <i class="bi bi-eye"></i>
+                                <span>View</span>
+                            </a>
+                            @if(($user->total_questions ?? 0) === 0)
+                                <form method="POST" action="{{ route('admin.questioners.destroy', $user) }}" class="d-inline delete-user-form" onsubmit="return confirm('Are you sure you want to permanently delete questioner \'{{ addslashes($displayName) }}\'? This profile has no submitted fatwas.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" 
+                                            class="btn-action-delete" 
+                                            title="Delete Questioner Profile (No Fatwas)">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </form>
+                            @endif
+                        </div>
                     </td>
                 </tr>
                 @empty
@@ -850,7 +941,10 @@
     <div class="p-3 px-4 bg-white border-top d-flex flex-column flex-md-row justify-content-between align-items-center gap-3" id="paginationContainer">
         {{-- Result Count: Showing 1–5 of 5 questioners (filtered from 293 total) --}}
         <div class="small text-muted" style="font-size: 0.84rem;">
-            Showing <strong class="text-dark fw-bold">{{ $questioners->firstItem() ?? 0 }}–{{ $questioners->lastItem() ?? 0 }}</strong> of <strong class="text-dark fw-bold">{{ number_format($questioners->total()) }}</strong> questioners@if(request('search') || $questioners->total() < ($summaryStats['total'] ?? 0)) (filtered from <strong class="text-dark fw-bold">{{ number_format($summaryStats['total'] ?? 0) }}</strong> total)@endif
+            Showing <strong class="text-dark fw-bold">{{ $questioners->firstItem() ?? 0 }}–{{ $questioners->lastItem() ?? 0 }}</strong> of <strong class="text-dark fw-bold">{{ number_format($questioners->total()) }}</strong> questioners
+            @if(request('search') || $questioners->total() < ($summaryStats['total'] ?? 0))
+                (filtered from <strong class="text-dark fw-bold">{{ number_format($summaryStats['total'] ?? 0) }}</strong> total)
+            @endif
         </div>
 
         {{-- Custom Pagination Navigation (< Previous  1  Next >) --}}
@@ -906,6 +1000,14 @@
                 <i class="bi bi-file-earmark-spreadsheet"></i> Export Selected CSV
             </button>
         </form>
+        <form method="POST" action="{{ route('admin.questioners.bulk-delete') }}" id="bulkDeleteForm" class="d-inline" onsubmit="return confirm('Permanently delete selected questioner profile(s) with no fatwas? Accounts with existing fatwas will be safely skipped.');">
+            @csrf
+            @method('DELETE')
+            <input type="hidden" name="selected_ids" id="bulkDeleteIds" value="">
+            <button type="submit" class="btn btn-sm btn-danger rounded-pill px-3 py-1 fw-semibold d-inline-flex align-items-center gap-1.5" style="font-size: 0.78rem;">
+                <i class="bi bi-trash3"></i> Delete Selected (No Fatwas)
+            </button>
+        </form>
         <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.78rem;" onclick="clearSelection()">
             Deselect All
         </button>
@@ -922,15 +1024,18 @@
         const bulkBar = document.getElementById('bulkActionBar');
         const countBadge = document.getElementById('bulkSelectedCount');
         const exportIdsInput = document.getElementById('bulkExportIds');
+        const bulkDeleteIdsInput = document.getElementById('bulkDeleteIds');
 
         if (!checkAll || !checkboxes.length) return;
 
         function updateSelectionState() {
             const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
             const count = checkedBoxes.length;
+            const idList = checkedBoxes.map(cb => cb.value).join(',');
 
             if (countBadge) countBadge.textContent = count;
-            if (exportIdsInput) exportIdsInput.value = checkedBoxes.map(cb => cb.value).join(',');
+            if (exportIdsInput) exportIdsInput.value = idList;
+            if (bulkDeleteIdsInput) bulkDeleteIdsInput.value = idList;
 
             checkboxes.forEach(cb => {
                 const tr = document.getElementById(`row-${cb.value}`);

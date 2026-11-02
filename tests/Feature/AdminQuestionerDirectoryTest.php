@@ -20,8 +20,8 @@ class AdminQuestionerDirectoryTest extends TestCase
     {
         parent::setUp();
 
-        $adminRole = Role::firstOrCreate(['id' => 1], ['name' => 'Admin']);
-        $userRole = Role::firstOrCreate(['id' => 2], ['name' => 'User']);
+        $adminRole = Role::where('name', 'admin')->first() ?? Role::firstOrCreate(['name' => 'admin']);
+        $userRole = Role::where('name', 'questioner')->first() ?? Role::firstOrCreate(['name' => 'questioner']);
 
         $this->admin = User::create([
             'role_id'    => $adminRole->id,
@@ -188,5 +188,93 @@ class AdminQuestionerDirectoryTest extends TestCase
         $this->assertStringContainsString('Ahmad Questioner', $csvContent);
         $this->assertStringContainsString('ahmad@example.com', $csvContent);
         $this->assertStringNotContainsString('Zaid Questioner', $csvContent);
+    }
+
+    public function test_admin_can_delete_questioner_with_no_questions(): void
+    {
+        $userRole = Role::where('name', 'questioner')->first() ?? Role::firstOrCreate(['name' => 'questioner']);
+        $emptyUser = User::create([
+            'role_id'    => $userRole->id,
+            'name'       => 'Empty Questioner',
+            'despl_name' => 'Empty Questioner',
+            'email'      => 'empty@example.com',
+            'country'    => 'India',
+        ]);
+
+        $this->assertDatabaseHas('users', ['id' => $emptyUser->id]);
+
+        $response = $this->actingAs($this->admin)->delete(route('admin.questioners.destroy', $emptyUser));
+        $response->assertRedirect(route('admin.questioners.index'));
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('users', ['id' => $emptyUser->id]);
+    }
+
+    public function test_admin_cannot_delete_questioner_with_existing_fatwas(): void
+    {
+        // questioner1 has questions
+        $this->assertDatabaseHas('users', ['id' => $this->questioner1->id]);
+
+        $response = $this->actingAs($this->admin)->delete(route('admin.questioners.destroy', $this->questioner1));
+        $response->assertSessionHas('error');
+
+        $this->assertDatabaseHas('users', ['id' => $this->questioner1->id]);
+    }
+
+    public function test_admin_cannot_delete_admin_or_mufti_user(): void
+    {
+        $response = $this->actingAs($this->admin)->delete(route('admin.questioners.destroy', $this->admin));
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('users', ['id' => $this->admin->id]);
+    }
+
+    public function test_admin_can_bulk_delete_questioners_with_no_questions(): void
+    {
+        $userRole = Role::where('name', 'questioner')->first() ?? Role::firstOrCreate(['name' => 'questioner']);
+        $empty1 = User::create([
+            'role_id'    => $userRole->id,
+            'name'       => 'Empty One',
+            'despl_name' => 'Empty One',
+            'email'      => 'empty1@example.com',
+        ]);
+        $empty2 = User::create([
+            'role_id'    => $userRole->id,
+            'name'       => 'Empty Two',
+            'despl_name' => 'Empty Two',
+            'email'      => 'empty2@example.com',
+        ]);
+
+        // Bulk delete empty1, empty2, and questioner1 (which has questions)
+        $response = $this->actingAs($this->admin)->delete(route('admin.questioners.bulk-delete'), [
+            'selected_ids' => [$empty1->id, $empty2->id, $this->questioner1->id],
+        ]);
+
+        $response->assertRedirect(route('admin.questioners.index'));
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('users', ['id' => $empty1->id]);
+        $this->assertDatabaseMissing('users', ['id' => $empty2->id]);
+        $this->assertDatabaseHas('users', ['id' => $this->questioner1->id]); // Preserved!
+    }
+
+    public function test_questioner_directory_table_shows_delete_button_only_for_empty_profiles(): void
+    {
+        $userRole = Role::where('name', 'questioner')->first() ?? Role::firstOrCreate(['name' => 'questioner']);
+        $emptyUser = User::create([
+            'role_id'    => $userRole->id,
+            'name'       => 'Empty Questioner Visible',
+            'despl_name' => 'Empty Questioner Visible',
+            'email'      => 'emptyvis@example.com',
+            'country'    => 'India',
+        ]);
+
+        $response = $this->actingAs($this->admin)->get(route('admin.questioners.index'));
+        $response->assertStatus(200);
+
+        // Form action targeting emptyUser destroy route should be visible
+        $response->assertSee('action="' . route('admin.questioners.destroy', $emptyUser) . '"', false);
+
+        // Form action targeting questioner1 should NOT be present in table
+        $response->assertDontSee('action="' . route('admin.questioners.destroy', $this->questioner1) . '"', false);
     }
 }

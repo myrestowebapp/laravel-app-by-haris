@@ -232,4 +232,116 @@ class QuestionerController extends Controller
 
         return view('admin.questioners.show', compact('user', 'questions', 'stats', 'visitorLogs'));
     }
+
+    /**
+     * Delete a single questioner profile who has no associated fatwas/questions.
+     */
+    public function destroy(Request $request, User $user)
+    {
+        // 1. Safety check: Protect administrative & scholar accounts
+        if ($user->id === auth()->id() || $user->hasRole(['admin', 'mufti'])) {
+            $msg = 'Administrative and scholar profiles cannot be deleted.';
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $msg], 403);
+            }
+            return back()->with('error', $msg);
+        }
+
+        // 2. Core safety rule: Questioner must have no fatwas / questions
+        $questionsCount = $user->questions()->count();
+        if ($questionsCount > 0) {
+            $msg = "Cannot delete questioner '{$user->name}' because they have {$questionsCount} associated fatwa(s) or question(s).";
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+            return back()->with('error', $msg);
+        }
+
+        // 3. Workflow safety check
+        $assignedCount = QuestionAndAnswer::where('assigned_mufti_id', $user->id)
+            ->orWhere('published_by', $user->id)
+            ->orWhere('checked_approved_by', $user->id)
+            ->count();
+        if ($assignedCount > 0) {
+            $msg = 'Cannot delete this user because they are linked to administrative fatwa workflows.';
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+            return back()->with('error', $msg);
+        }
+
+        $displayName = $user->despl_name ?: $user->name;
+        $user->delete();
+
+        $successMsg = "Questioner '{$displayName}' profile deleted successfully.";
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => $successMsg]);
+        }
+
+        return redirect()->route('admin.questioners.index')->with('success', $successMsg);
+    }
+
+    /**
+     * Bulk delete selected questioners who have no questions/fatwas.
+     */
+    public function bulkDestroy(Request $request)
+    {
+        $ids = $request->input('selected_ids');
+        if (is_string($ids)) {
+            $ids = array_filter(array_map('trim', explode(',', $ids)));
+        }
+
+        if (empty($ids) || !is_array($ids)) {
+            $msg = 'No questioners selected for deletion.';
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+            return back()->with('error', $msg);
+        }
+
+        $users = User::whereIn('id', $ids)
+            ->where('id', '!=', auth()->id())
+            ->withCount('questions')
+            ->get();
+
+        $deletedCount = 0;
+        $skippedCount = 0;
+
+        foreach ($users as $user) {
+            if ($user->hasRole(['admin', 'mufti']) || $user->questions_count > 0) {
+                $skippedCount++;
+                continue;
+            }
+
+            // Check workflow link
+            $hasWorkflowLink = QuestionAndAnswer::where('assigned_mufti_id', $user->id)
+                ->orWhere('published_by', $user->id)
+                ->orWhere('checked_approved_by', $user->id)
+                ->exists();
+
+            if ($hasWorkflowLink) {
+                $skippedCount++;
+                continue;
+            }
+
+            $user->delete();
+            $deletedCount++;
+        }
+
+        $msg = "Successfully deleted {$deletedCount} questioner profile(s) with no fatwas.";
+        if ($skippedCount > 0) {
+            $msg .= " ({$skippedCount} profile(s) preserved because they have existing fatwas or administrative roles.)";
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'deleted_count' => $deletedCount,
+                'skipped_count' => $skippedCount,
+                'message' => $msg,
+            ]);
+        }
+
+        return redirect()->route('admin.questioners.index')->with('success', $msg);
+    }
 }
