@@ -197,6 +197,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', fn(Request $request) => $request->user());
 });
 
+/*
+|--------------------------------------------------------------------------
+| User Mobile App Routes
+|--------------------------------------------------------------------------
+*/
+Route::prefix('user')->group(base_path('routes/user_mobile_app_api.php'));
+
 
 /*
 |--------------------------------------------------------------------------

@@ -17,7 +17,7 @@ class ProfileController extends Controller
         $user = Auth::user();
         $hasPendingQuestion = session()->has('pending_question');
         $isSecondQuestion = $user->questions()->count() >= 1;
-        $showMobile = empty($user->mobile);
+        $showMobile = true; // Always present the modern ISD country phone input
 
         // Preselect the preferred madhab
         $preferredMadhabId = $user->madhab_id;
@@ -29,11 +29,12 @@ class ProfileController extends Controller
         }
 
         // If profile is already completed AND no pending question, redirect
-        $hasAddress = !empty($user->address_line_1);
-        $hasGender = !empty($user->gender) && strtolower($user->gender) !== 'not set';
-        $hasMobile = !empty($user->mobile);
-        $hasMadhab = !empty($user->madhab_id);
-        $isProfileComplete = $hasAddress && $hasGender && $hasMobile && $hasMadhab && $user->profile_completed;
+        $hasAddress  = !empty($user->address_line_1);
+        $hasGender   = !empty($user->gender) && strtolower($user->gender) !== 'not set';
+        $hasMobile   = !empty(trim((string)$user->mobile));
+        $hasCountry  = !empty(trim((string)$user->country)) && strtolower(trim((string)$user->country)) !== 'not set';
+        $hasMadhab   = !empty($user->madhab_id);
+        $isProfileComplete = $hasAddress && $hasGender && $hasMobile && $hasCountry && $hasMadhab && $user->profile_completed;
 
         if ($isProfileComplete && !$hasPendingQuestion) {
             return redirect()->route('user.dashboard');
@@ -59,15 +60,13 @@ class ProfileController extends Controller
             'address_line_1'  => ['required', 'string', 'max:255'],
             'address_line_2'  => ['nullable', 'string', 'max:255'],
             'country'         => ['required', 'string', 'max:100'],
+            'country_code'    => ['nullable', 'string', 'max:10'],
+            'mobile'          => ['required', 'string', 'min:7', 'max:25'],
             'state'           => ['required', 'string', 'max:100'],
             'district'        => ['required', 'string', 'max:100'],
             'madhab_id'       => ['required', 'exists:madhabs,id'],
             'mother_language' => ['nullable', 'string', 'max:50'],
         ];
-
-        if (empty($user->mobile)) {
-            $rules['mobile'] = ['required', 'string', 'max:20'];
-        }
 
         $request->validate($rules);
 
@@ -83,8 +82,20 @@ class ProfileController extends Controller
             'profile_completed' => true,
         ];
 
-        if (empty($user->mobile)) {
-            $updateData['mobile'] = $request->mobile;
+        if ($request->filled('country_code')) {
+            $updateData['country_code'] = trim($request->country_code);
+        }
+
+        if ($request->filled('mobile')) {
+            $rawMobile = trim($request->mobile);
+            $countryCode = trim($request->input('country_code', ''));
+            // If rawMobile doesn't start with '+' and countryCode is present, format cleanly as international number
+            if (!str_starts_with($rawMobile, '+') && !empty($countryCode)) {
+                $code = str_starts_with($countryCode, '+') ? $countryCode : '+' . $countryCode;
+                $updateData['mobile'] = $code . ltrim($rawMobile, '0');
+            } else {
+                $updateData['mobile'] = $rawMobile;
+            }
         }
 
         $user->update($updateData);
@@ -104,34 +115,11 @@ class ProfileController extends Controller
         return redirect()->route('user.dashboard')->with('success', 'Profile details completed successfully!');
     }
 
+    /**
+     * Bypassing profile completion is disabled. Mobile number and Country are mandatory.
+     */
     public function skip(Request $request)
     {
-        $user = Auth::user();
-        
-        // Skip is only allowed if they have a pending question AND it is their first question
-        $isSecondQuestion = $user->questions()->count() >= 1;
-
-        if (!session()->has('pending_question') || $isSecondQuestion) {
-            return redirect()->route('home')->with('error', 'Bypassing profile completion is not allowed.');
-        }
-
-        // Atomically pull pending question from session
-        $pendingQuestion = session()->pull('pending_question');
-
-        if (!$pendingQuestion) {
-            return redirect()->route('home')->with('success', 'Your question has already been processed.');
-        }
-
-        // Post the question
-        $question = QuestionController::saveQuestion($user->id, $pendingQuestion);
-
-        // Send profile completion reminder email
-        try {
-            Mail::to($user->email)->send(new CompleteProfileRequestMail($user));
-        } catch (\Exception $e) {
-            \Log::error("Failed to send CompleteProfileRequestMail: " . $e->getMessage());
-        }
-
-        return redirect()->route('home')->with('success', 'Your question has been submitted successfully! Please check your email to complete your profile later. Question ID: ' . $question->question_id);
+        return redirect()->route('profile.complete')->with('error', 'Mobile number and Country are mandatory to submit a question. Please complete your profile details.');
     }
 }

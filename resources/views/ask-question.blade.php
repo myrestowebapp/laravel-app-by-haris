@@ -299,6 +299,17 @@
             </div>
         </div>
 
+        {{-- Mandatory Mobile & Country Notice --}}
+        @if(Auth::check() && (empty(Auth::user()->mobile) || empty(Auth::user()->country) || strtolower(Auth::user()->country) === 'not set'))
+            <div class="alert alert-warning border-0 shadow-sm rounded-4 mb-4 d-flex align-items-center gap-3" style="background-color: #fff9ea; border: 1px solid #fae7ba !important;">
+                <i class="bi bi-shield-exclamation text-warning fs-3"></i>
+                <div>
+                    <div class="fw-bold text-dark">Mobile Number & Country Are Mandatory</div>
+                    <div class="text-muted small">To ensure fatwas are issued according to your geographical context and verified questioner identity, a valid mobile number and country are strictly required before submitting inquiries.</div>
+                </div>
+            </div>
+        @endif
+
         {{-- 4. Main Form Card --}}
         <div class="ask-form-card mb-4">
             <form method="POST" action="{{ route('question.store') }}" enctype="multipart/form-data" id="askForm">

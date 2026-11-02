@@ -54,13 +54,24 @@ class QuestionController extends Controller
             return redirect()->route('home')->with('success', 'Your question has been submitted successfully! Question ID: ' . $existing->question_id);
         }
 
-        // Check if the user's profile is incomplete
-        $hasMobile  = !empty($user->mobile);
+        // If mobile or country were submitted directly in request, persist them
+        if ($request->filled('mobile') && empty($user->mobile)) {
+            $user->mobile = trim($request->mobile);
+            $user->save();
+        }
+        if ($request->filled('country') && (empty($user->country) || strtolower($user->country) === 'not set')) {
+            $user->country = trim($request->country);
+            $user->save();
+        }
+
+        // Check if the user's profile is incomplete (Mobile and Country are strictly mandatory)
+        $hasMobile  = !empty(trim((string)$user->mobile));
+        $hasCountry = !empty(trim((string)$user->country)) && strtolower(trim((string)$user->country)) !== 'not set';
         $hasGender  = !empty($user->gender) && strtolower($user->gender) !== 'not set';
         $hasMadhab  = !empty($user->madhab_id);
         $hasAddress = !empty($user->address_line_1);
 
-        $isProfileIncomplete = !$hasMobile || !$hasGender || !$hasMadhab || !$hasAddress || !$user->profile_completed;
+        $isProfileIncomplete = !$hasMobile || !$hasCountry || !$hasGender || !$hasMadhab || !$hasAddress || !$user->profile_completed;
 
         if ($isProfileIncomplete) {
             // Save question to session
@@ -73,7 +84,7 @@ class QuestionController extends Controller
                 ]
             ]);
 
-            return redirect()->route('profile.complete');
+            return redirect()->route('profile.complete')->with('warning', 'Mobile number and Country are strictly mandatory to submit your question. Please complete your profile details.');
         }
 
         // Profile is complete, post the question directly
@@ -92,6 +103,15 @@ class QuestionController extends Controller
      */
     public static function saveQuestion($userId, array $data)
     {
+        $user = User::find($userId);
+        if ($user) {
+            $hasMobile  = !empty(trim((string)$user->mobile));
+            $hasCountry = !empty(trim((string)$user->country)) && strtolower(trim((string)$user->country)) !== 'not set';
+            if (!$hasMobile || !$hasCountry) {
+                throw new \InvalidArgumentException("Mobile number and Country are strictly mandatory before submitting a question.");
+            }
+        }
+
         // 1. Strict Idempotency / Deduplication Guard: Check if identical question was created in the last 2 minutes
         $existing = QuestionAndAnswer::where('user_id', $userId)
             ->where('title', $data['title'])
@@ -138,7 +158,6 @@ class QuestionController extends Controller
         }
 
         // Email the user
-        $user = User::find($userId);
         if ($user) {
             try {
                 Mail::to($user->email)->send(new \App\Mail\UserQuestionSubmittedMail($question));

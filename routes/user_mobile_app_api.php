@@ -161,19 +161,48 @@ Route::post('/auth/register', function (Request $request) {
 
 Route::middleware('auth:sanctum')->group(function () {
     
-    // Submit inquiry with file upload support
+    // Submit inquiry with file upload support (Mobile number and Country are strictly mandatory)
     Route::post('/questions', function (Request $request) {
         $validated = $request->validate([
             'title'       => 'nullable|string|max:255',
             'body'        => 'required|min:20',
             'category_id' => 'required|exists:categories,id',
             'madhab_id'   => 'nullable|exists:madhabs,id',
+            'mobile'      => 'nullable|string|min:7|max:20',
+            'country'     => 'nullable|string|max:100',
             'files.*'     => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120', // 5MB limit
         ]);
 
+        $user = $request->user();
+
+        // If mobile or country were passed with the inquiry, persist them
+        if ($request->filled('mobile') && empty($user->mobile)) {
+            $user->mobile = trim($request->input('mobile'));
+            $user->save();
+        }
+        if ($request->filled('country') && (empty($user->country) || strtolower($user->country) === 'not set')) {
+            $user->country = trim($request->input('country'));
+            $user->save();
+        }
+
+        // Strictly verify mandatory mobile and country
+        if (empty(trim((string)$user->mobile))) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Mobile number is strictly required to submit an inquiry. Please complete your profile details or provide mobile number.'
+            ], 422);
+        }
+
+        if (empty(trim((string)$user->country)) || strtolower(trim((string)$user->country)) === 'not set') {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Country is strictly required to submit an inquiry. Please complete your profile details or provide country.'
+            ], 422);
+        }
+
         $question = \App\Models\QuestionAndAnswer::create([
             'question_id' => \App\Models\QuestionAndAnswer::generateQuestionId(),
-            'user_id'     => $request->user()->id,
+            'user_id'     => $user->id,
             'category_id' => $request->category_id,
             'madhab_id'   => $request->madhab_id,
             'title'       => $request->title,
