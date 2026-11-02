@@ -124,7 +124,10 @@ class FatwaIntegrityRestorationService
     public function getOriginalMysqlInquiry(string $questionId): ?array
     {
         return Cache::remember('mysql_questions_sql_index', 3600, function () use ($questionId) {
-            $sqlPath = public_path('questions.sql');
+            $sqlPath = database_path('migrations_data/questions.sql');
+            if (!file_exists($sqlPath)) {
+                $sqlPath = public_path('questions.sql');
+            }
             if (!file_exists($sqlPath)) {
                 return [];
             }

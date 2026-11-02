@@ -1,4 +1,8 @@
 *.log
+error_log
+error_log.*
+/public/error_log*
+/database/scripts/
 .DS_Store
 .env
 .env.*

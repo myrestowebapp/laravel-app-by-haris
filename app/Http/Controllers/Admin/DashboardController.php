@@ -183,10 +183,40 @@ class DashboardController extends Controller
 
         $onlineMuftisCount = $facultyMuftis->filter(fn($m) => $m->isOnline(5))->count();
 
+        // Live Questioners (active within 5 minutes)
+        $liveQuestioners = User::whereHas('role', fn($q) => $q->whereIn('name', ['user', 'questioner']))
+            ->where('last_seen_at', '>=', now()->subMinutes(5))
+            ->withCount(['questions as total_questions'])
+            ->latest('last_seen_at')
+            ->take(15)
+            ->get();
+        $onlineQuestionersCount = User::whereHas('role', fn($q) => $q->whereIn('name', ['user', 'questioner']))
+            ->where('last_seen_at', '>=', now()->subMinutes(5))
+            ->count();
+
+        // Live Anonymous Visitors (from live_guests_pool within 5 minutes)
+        $cutoff = time() - 300;
+        $rawGuests = \Illuminate\Support\Facades\Cache::get('live_guests_pool', []);
+        if (!is_array($rawGuests)) $rawGuests = [];
+        $activeGuestsPool = array_filter($rawGuests, fn($item) => isset($item['timestamp']) && $item['timestamp'] >= $cutoff);
+        $onlineVisitorsCount = count($activeGuestsPool);
+        $totalLiveUsersCount = $onlineMuftisCount + $onlineQuestionersCount + $onlineVisitorsCount;
+
         $categories = Category::orderBy('name')->get();
         $madhabs = \App\Models\Madhab::all();
 
-        return view('admin.dashboard', array_merge($data, compact('recentQuestions', 'recentPublishedFatwas', 'facultyMuftis', 'onlineMuftisCount', 'categories', 'madhabs')));
+        return view('admin.dashboard', array_merge($data, compact(
+            'recentQuestions', 
+            'recentPublishedFatwas', 
+            'facultyMuftis', 
+            'onlineMuftisCount', 
+            'liveQuestioners',
+            'onlineQuestionersCount',
+            'onlineVisitorsCount',
+            'totalLiveUsersCount',
+            'categories', 
+            'madhabs'
+        )));
     }
 
     /**
@@ -333,7 +363,9 @@ class DashboardController extends Controller
     public function liveUsersApi()
     {
         $data = self::getRealtimeLiveVisitorsCount();
+        $cutoff = time() - 300;
 
+        // 1. Live Faculty Scholars / Muftis
         $onlineMuftis = User::whereHas('role', fn($q) => $q->where('name', 'mufti'))
             ->where('last_seen_at', '>=', now()->subMinutes(5))
             ->withCount([
@@ -352,11 +384,75 @@ class DashboardController extends Controller
                     'start_time'    => ($m->last_login_at ?? now())->timestamp * 1000,
                     'pending_count' => (int) $m->pending_count,
                     'last_seen'     => $m->last_seen_at ? $m->last_seen_at->diffForHumans(null, true) : 'Active',
+                    'role'          => 'mufti',
+                    'country'       => $m->country ?? '—',
                 ];
             });
 
+        // 2. Live Logged-in Questioners
+        $authPool = \Illuminate\Support\Facades\Cache::get('live_active_users_pool', []);
+        if (!is_array($authPool)) $authPool = [];
+
+        $onlineQuestioners = User::whereHas('role', fn($q) => $q->whereIn('name', ['user', 'questioner']))
+            ->where('last_seen_at', '>=', now()->subMinutes(5))
+            ->withCount(['questions as total_questions'])
+            ->latest('last_seen_at')
+            ->take(20)
+            ->get()
+            ->map(function ($u) use ($authPool) {
+                $cached = $authPool[$u->id] ?? null;
+                return [
+                    'id'          => $u->id,
+                    'name'        => $u->name,
+                    'email'       => $u->email,
+                    'avatar'      => $u->avatar ? asset($u->avatar) : 'https://ui-avatars.com/api/?name=' . urlencode($u->name) . '&background=0284C7&color=fff&size=60',
+                    'country'     => $u->country ?: ($cached['country'] ?? '—'),
+                    'mobile'      => $u->mobile ?? '—',
+                    'page'        => $cached['page'] ?? '/',
+                    'total_q'     => (int) $u->total_questions,
+                    'last_seen'   => $u->last_seen_at ? $u->last_seen_at->diffForHumans(null, true) : 'Active',
+                    'profile_url' => route('admin.questioners.show', $u->id),
+                    'role'        => 'questioner',
+                ];
+            });
+
+        // 3. Live Anonymous Website Visitors
+        $rawGuests = \Illuminate\Support\Facades\Cache::get('live_guests_pool', []);
+        if (!is_array($rawGuests)) $rawGuests = [];
+        $activeGuestsPool = array_filter($rawGuests, fn($item) => isset($item['timestamp']) && $item['timestamp'] >= $cutoff);
+
+        $onlineVisitors = collect($activeGuestsPool)
+            ->sortByDesc('timestamp')
+            ->take(20)
+            ->values()
+            ->map(function ($g) {
+                return [
+                    'id'           => $g['ip_hash'] ?? 'guest',
+                    'name'         => 'Visitor #' . ($g['ip_hash'] ?? '0000'),
+                    'role'         => 'visitor',
+                    'country'      => $g['country'] ?? 'Global Visitor',
+                    'country_code' => $g['country_code'] ?? null,
+                    'device'       => $g['device'] ?? 'Desktop',
+                    'browser'      => $g['browser'] ?? 'Browser',
+                    'page'         => $g['page'] ?? '/',
+                    'last_seen'    => isset($g['timestamp']) ? \Carbon\Carbon::createFromTimestamp($g['timestamp'])->diffForHumans(null, true) : 'Active',
+                ];
+            });
+
+        $onlineMuftisCount = $onlineMuftis->count();
+        $onlineQuestionersCount = User::whereHas('role', fn($q) => $q->whereIn('name', ['user', 'questioner']))
+            ->where('last_seen_at', '>=', now()->subMinutes(5))
+            ->count();
+        $onlineVisitorsCount = count($activeGuestsPool);
+        $totalLiveCount = $onlineMuftisCount + $onlineQuestionersCount + $onlineVisitorsCount;
+
         $data['onlineMuftis'] = $onlineMuftis;
-        $data['onlineMuftisCount'] = $onlineMuftis->count();
+        $data['onlineMuftisCount'] = $onlineMuftisCount;
+        $data['onlineQuestioners'] = $onlineQuestioners;
+        $data['onlineQuestionersCount'] = $onlineQuestionersCount;
+        $data['onlineVisitors'] = $onlineVisitors;
+        $data['onlineVisitorsCount'] = $onlineVisitorsCount;
+        $data['totalLiveCount'] = $totalLiveCount;
 
         return response()->json($data);
     }

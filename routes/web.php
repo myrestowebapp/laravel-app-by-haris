@@ -53,36 +53,116 @@ Route::get('/sitemap-pages.xml', [\App\Http\Controllers\SeoAndAiController::clas
 Route::get('/fatwa-archive/{fatwa}/markdown', [\App\Http\Controllers\SeoAndAiController::class, 'fatwaMarkdown'])->name('fatwa.markdown');
 Route::get('/fatwa-archive/{fatwa}.md', [\App\Http\Controllers\SeoAndAiController::class, 'fatwaMarkdown'])->name('fatwa.md');
 
-// Live Activity Signal Heartbeat
+// Live Activity Signal Heartbeat (Universal across all domain pages)
 Route::match(['get', 'post'], '/user-heartbeat', function (\Illuminate\Http\Request $request) {
-    try {
-        $ip = $request->ip();
-        if ($ip) {
-            $now = time();
-            $cutoff = $now - 300;
-            $activeIps = \Illuminate\Support\Facades\Cache::get('live_visitors_pool', []);
-            if (!is_array($activeIps)) {
-                $activeIps = [];
-            }
-            $activeIps = array_filter($activeIps, fn($t) => is_numeric($t) && $t >= $cutoff);
-            $activeIps[md5($ip)] = $now;
-            \Illuminate\Support\Facades\Cache::put('live_visitors_pool', $activeIps, now()->addMinutes(10));
-        }
-    } catch (\Exception $e) {}
+    $now = time();
+    $cutoff = $now - 300; // 5-minute sliding window
+    $ip = $request->ip() ?: '127.0.0.1';
 
+    $page = $request->input('page');
+    if (!$page) {
+        $json = json_decode($request->getContent(), true);
+        $page = $json['page'] ?? null;
+    }
+    if (!$page) {
+        $referer = $request->headers->get('referer');
+        $page = $referer ? (parse_url($referer, PHP_URL_PATH) ?: '/') : '/';
+    }
+
+    // 1. Maintain global IP pool
+    try {
+        $activeIps = \Illuminate\Support\Facades\Cache::get('live_visitors_pool', []);
+        if (!is_array($activeIps)) $activeIps = [];
+        $activeIps = array_filter($activeIps, fn($t) => is_numeric($t) && $t >= $cutoff);
+        $activeIps[md5($ip)] = $now;
+        \Illuminate\Support\Facades\Cache::put('live_visitors_pool', $activeIps, now()->addMinutes(10));
+    } catch (\Throwable $e) {}
+
+    // 2. Authenticated user (Mufti, Scholar, Admin, Questioner)
     if (auth()->check()) {
-        \App\Models\User::where('id', auth()->id())->update([
-            'last_seen_at' => now(),
-        ]);
+        $user = auth()->user();
+        \App\Models\User::where('id', $user->id)->update(['last_seen_at' => now()]);
+
         try {
-            $activeSession = \App\Models\UserLoginLog::where('user_id', auth()->id())->where('is_active', true)->latest('id')->first();
+            $activeSession = \App\Models\UserLoginLog::where('user_id', $user->id)
+                ->where('is_active', true)
+                ->latest('id')
+                ->first();
             if ($activeSession) {
                 $activeSession->recordHeartbeat();
             }
+        } catch (Throwable $e) {}
+
+        try {
+            $roleName = $user->role ? strtolower($user->role->name) : 'questioner';
+            $authPool = \Illuminate\Support\Facades\Cache::get('live_active_users_pool', []);
+            if (!is_array($authPool)) $authPool = [];
+            $authPool = array_filter($authPool, fn($item) => isset($item['timestamp']) && $item['timestamp'] >= $cutoff);
+
+            $authPool[$user->id] = [
+                'id'        => $user->id,
+                'name'      => $user->name,
+                'email'     => $user->email,
+                'role'      => $roleName,
+                'avatar'    => $user->avatar ? asset($user->avatar) : null,
+                'country'   => $user->country ?? '—',
+                'mobile'    => $user->mobile,
+                'page'      => $page,
+                'timestamp' => $now,
+            ];
+            \Illuminate\Support\Facades\Cache::put('live_active_users_pool', $authPool, now()->addMinutes(10));
         } catch (\Throwable $e) {}
-        return response()->json(['status' => 'ok', 'online' => true, 'time' => now()->toIso8601String()]);
+
+        return response()->json([
+            'status' => 'ok',
+            'online' => true,
+            'type'   => $user->role ? $user->role->name : 'user',
+            'time'   => now()->toIso8601String()
+        ]);
     }
-    return response()->json(['status' => 'guest', 'online' => true]);
+
+    // 3. Unauthenticated guest visitor
+    try {
+        $guestKey = md5($ip . '_' . ($request->userAgent() ?? 'guest'));
+        $guestsPool = \Illuminate\Support\Facades\Cache::get('live_guests_pool', []);
+        if (!is_array($guestsPool)) $guestsPool = [];
+        $guestsPool = array_filter($guestsPool, fn($item) => isset($item['timestamp']) && $item['timestamp'] >= $cutoff);
+
+        $cachedGeo = \Illuminate\Support\Facades\Cache::get("ip_geo_{$ip}");
+        $country = $cachedGeo['country'] ?? 'Global Visitor';
+        $countryCode = $cachedGeo['country_code'] ?? null;
+
+        $ua = strtolower((string)$request->userAgent());
+        $device = 'Desktop';
+        if (str_contains($ua, 'mobile') || str_contains($ua, 'android') || str_contains($ua, 'iphone')) {
+            $device = 'Mobile';
+        } elseif (str_contains($ua, 'tablet') || str_contains($ua, 'ipad')) {
+            $device = 'Tablet';
+        }
+
+        $browser = 'Browser';
+        if (str_contains($ua, 'chrome') && !str_contains($ua, 'edg')) $browser = 'Chrome';
+        elseif (str_contains($ua, 'safari') && !str_contains($ua, 'chrome')) $browser = 'Safari';
+        elseif (str_contains($ua, 'firefox')) $browser = 'Firefox';
+        elseif (str_contains($ua, 'edg')) $browser = 'Edge';
+
+        $guestsPool[$guestKey] = [
+            'ip_hash'      => substr($guestKey, 0, 8),
+            'country'      => $country,
+            'country_code' => $countryCode,
+            'device'       => $device,
+            'browser'      => $browser,
+            'page'         => $page,
+            'timestamp'    => $now,
+        ];
+        \Illuminate\Support\Facades\Cache::put('live_guests_pool', $guestsPool, now()->addMinutes(10));
+    } catch (\Throwable $e) {}
+
+    return response()->json([
+        'status' => 'guest',
+        'online' => true,
+        'type'   => 'visitor'
+    ]);
 })->name('user.heartbeat');
 
 /*

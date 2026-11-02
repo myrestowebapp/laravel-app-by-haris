@@ -1197,6 +1197,9 @@
     {{-- High-Security Fatwa Deletion Modal --}}
     @include('components.fatwa-delete-security-modal')
 
+    {{-- Domain-Wide Universal Live Presence Tracker --}}
+    @include('components.universal-presence-tracker')
+
     @stack('scripts')
 </body>
 </html>

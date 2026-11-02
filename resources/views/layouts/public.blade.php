@@ -1064,6 +1064,7 @@
             });
         }
     </script>
+    @include('components.universal-presence-tracker')
     @stack('scripts')
 </body>
 

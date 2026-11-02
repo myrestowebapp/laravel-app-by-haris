@@ -119,88 +119,151 @@
         {{-- Card B: Live Scholar Dashboard (Modern Rectangular Cards with generous padding) --}}
         @php
             $liveMuftis = collect($facultyMuftis ?? [])->filter(fn($m) => $m->isOnline(5));
+            $liveQuestionersList = collect($liveQuestioners ?? []);
+            $totalLiveCountVal = ($onlineMuftisCount ?? 0) + ($onlineQuestionersCount ?? 0) + ($onlineVisitorsCount ?? 0);
         @endphp
         <div class="modern-card overflow-hidden mb-0">
             <div class="p-4 px-4 px-md-4.5 border-bottom d-flex flex-wrap justify-content-between align-items-center bg-white gap-3">
                 <div class="d-flex align-items-center gap-2.5">
                     <div class="d-inline-flex p-2 rounded-3" style="background: #ECFDF5; color: #059669;">
-                        <i class="bi bi-person-badge-fill fs-5"></i>
+                        <i class="bi bi-broadcast fs-5"></i>
                     </div>
                     <div>
-                        <h6 class="fw-bold mb-0 text-dark">Live Scholar Dashboard</h6>
-                        <div class="text-muted small mt-0.5" style="font-size: 0.74rem;">Active faculty on duty responding to fatwa inquiries</div>
+                        <h6 class="fw-bold mb-0 text-dark">Live User Presence &amp; Live Scholar Dashboard</h6>
+                        <div class="text-muted small mt-0.5" style="font-size: 0.74rem;">Real-time active faculty on duty, logged-in questioners &amp; website visitors across all domain pages</div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    @if($liveMuftis->count() > 0)
-                        <span class="badge" id="live-scholars-count-badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-size: 0.72rem; padding: 5px 12px; border-radius: 20px;">
-                            <span class="live-pulse-dot me-1"></span> <span id="live-scholars-count-num">{{ $liveMuftis->count() }}</span> Online Now
-                        </span>
-                    @else
-                        <span class="badge bg-light text-muted border rounded-pill px-3 py-1.5" id="live-scholars-count-badge" style="font-size: 0.72rem;">
-                            <span id="live-scholars-count-num">0</span> Online
-                        </span>
-                    @endif
+                    <span class="badge" id="live-scholars-count-badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-size: 0.74rem; padding: 6px 14px; border-radius: 20px;">
+                        <span class="live-pulse-dot me-1"></span> <span id="live-scholars-count-num">{{ $totalLiveCountVal }}</span> Total Online
+                    </span>
                     <a href="{{ route('admin.muftis.index') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 text-xs fw-semibold">
                         Faculty List <i class="bi bi-chevron-right ms-0.5" style="font-size: 0.65rem;"></i>
                     </a>
                 </div>
             </div>
 
+            {{-- Segmented User Role Filter Tabs --}}
+            <div class="px-4 px-md-4.5 pt-3 pb-2 bg-light bg-opacity-40 border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="btn-group btn-group-sm p-1 rounded-pill bg-white border shadow-2xs" role="tablist" id="live-role-filter-group">
+                    <button type="button" class="btn btn-sm rounded-pill px-3 py-1 fw-semibold live-filter-btn active" data-filter="all" style="font-size: 0.75rem;">
+                        All Live Users <span class="badge rounded-pill bg-primary ms-1" id="filter-count-all">{{ $totalLiveCountVal }}</span>
+                    </button>
+                    <button type="button" class="btn btn-sm rounded-pill px-3 py-1 fw-semibold live-filter-btn text-muted" data-filter="mufti" style="font-size: 0.75rem;">
+                        <i class="bi bi-person-badge me-1"></i> Scholars / Muftis <span class="badge rounded-pill bg-emerald-100 text-emerald-800 ms-1" id="filter-count-mufti">{{ $onlineMuftisCount ?? 0 }}</span>
+                    </button>
+                    <button type="button" class="btn btn-sm rounded-pill px-3 py-1 fw-semibold live-filter-btn text-muted" data-filter="questioner" style="font-size: 0.75rem;">
+                        <i class="bi bi-chat-left-text me-1"></i> Questioners <span class="badge rounded-pill bg-sky-100 text-sky-800 ms-1" id="filter-count-questioner">{{ $onlineQuestionersCount ?? 0 }}</span>
+                    </button>
+                    <button type="button" class="btn btn-sm rounded-pill px-3 py-1 fw-semibold live-filter-btn text-muted" data-filter="visitor" style="font-size: 0.75rem;">
+                        <i class="bi bi-globe2 me-1"></i> Visitors <span class="badge rounded-pill bg-slate-100 text-slate-700 ms-1" id="filter-count-visitor">{{ $onlineVisitorsCount ?? 0 }}</span>
+                    </button>
+                </div>
+                <div class="text-muted small d-none d-md-flex align-items-center gap-1.5" style="font-size: 0.72rem;">
+                    <i class="bi bi-arrow-repeat text-success"></i> Auto-synced every 5s domain-wide
+                </div>
+            </div>
+
             <div class="p-4 px-4 px-md-4.5 bg-white" id="live-scholars-grid-container">
-                @if($liveMuftis->count() > 0)
-                    @php
-                        // Proper responsive column width: if 1 scholar, don't stretch across screen
-                        $colClass = $liveMuftis->count() === 1 ? 'col-12 col-md-7 col-xl-5' : ($liveMuftis->count() === 2 ? 'col-12 col-md-6' : 'col-12 col-md-6 col-xl-4');
-                    @endphp
-                    <div class="row g-3" id="live-scholars-grid">
-                        @foreach($liveMuftis as $lMufti)
-                        <div class="{{ $colClass }} scholar-card-col">
-                            <div class="scholar-live-card p-3.5 rounded-3 border bg-white h-100 d-flex flex-column justify-content-between">
-                                <div class="d-flex align-items-center gap-3 mb-2.5">
-                                    <div class="position-relative flex-shrink-0">
-                                        <img src="{{ $lMufti->avatar ? asset($lMufti->avatar) : 'https://ui-avatars.com/api/?name='.urlencode($lMufti->name).'&background=102B43&color=fff&size=60' }}" 
-                                             alt="{{ $lMufti->name }}" class="rounded-circle border" width="46" height="46" style="object-fit: cover;">
-                                        <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-white rounded-circle" style="width: 11px; height: 11px;" title="Online now"></span>
-                                    </div>
-                                    <div class="flex-grow-1 min-w-0">
-                                        <a href="{{ route('admin.muftis.history', $lMufti) }}" class="fw-bold text-dark text-decoration-none text-truncate d-block scholar-name-link" style="font-size: 0.9rem;" title="{{ $lMufti->name }}">
+                <div class="row g-3" id="live-scholars-grid">
+                    @forelse($liveMuftis as $lMufti)
+                    <div class="col-12 col-md-6 col-xl-4 live-user-card-col" data-role="mufti">
+                        <div class="scholar-live-card p-3.5 rounded-3 border bg-white h-100 d-flex flex-column justify-content-between shadow-2xs">
+                            <div class="d-flex align-items-center gap-3 mb-2.5">
+                                <div class="position-relative flex-shrink-0">
+                                    <img src="{{ $lMufti->avatar ? asset($lMufti->avatar) : 'https://ui-avatars.com/api/?name='.urlencode($lMufti->name).'&background=102B43&color=fff&size=60' }}" 
+                                         alt="{{ $lMufti->name }}" class="rounded-circle border" width="46" height="46" style="object-fit: cover;">
+                                    <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-white rounded-circle" style="width: 11px; height: 11px;" title="Online now"></span>
+                                </div>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <a href="{{ route('admin.muftis.history', $lMufti) }}" class="fw-bold text-dark text-decoration-none text-truncate d-block scholar-name-link" style="font-size: 0.88rem;" title="{{ $lMufti->name }}">
                                             {{ $lMufti->name }}
                                         </a>
-                                        <div class="d-flex align-items-center gap-2 mt-1">
-                                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-0.5 d-inline-flex align-items-center gap-1" style="font-size: 0.68rem; font-weight: 700;">
-                                                <span class="live-pulse-dot" style="width: 5px; height: 5px;"></span> LIVE
-                                            </span>
-                                            <span class="badge bg-light text-muted border rounded-pill px-2.5 py-0.5 dash-live-timer font-monospace" data-start-time="{{ ($lMufti->last_login_at ?? now())->timestamp * 1000 }}" style="font-size: 0.72rem;">
-                                                00:00:00
-                                            </span>
-                                        </div>
+                                        <span class="badge rounded-pill px-2 py-0.5 text-2xs fw-bold" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0;">
+                                            Mufti
+                                        </span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-0.5 d-inline-flex align-items-center gap-1" style="font-size: 0.68rem; font-weight: 700;">
+                                            <span class="live-pulse-dot" style="width: 5px; height: 5px;"></span> LIVE
+                                        </span>
+                                        <span class="badge bg-light text-muted border rounded-pill px-2.5 py-0.5 dash-live-timer font-monospace" data-start-time="{{ ($lMufti->last_login_at ?? now())->timestamp * 1000 }}" style="font-size: 0.72rem;">
+                                            00:00:00
+                                        </span>
                                     </div>
                                 </div>
-                                <div class="pt-2.5 border-top mt-auto d-flex align-items-center justify-content-between text-muted" style="font-size: 0.74rem;">
-                                    <span class="d-flex align-items-center gap-1">
-                                        <i class="bi bi-inbox text-primary"></i>
-                                        <span>Queue: <strong class="text-dark">{{ $lMufti->pending_count ?? 0 }}</strong> pending</span>
-                                    </span>
-                                    <span>
-                                        <i class="bi bi-clock-history me-1"></i>{{ $lMufti->last_seen_at ? $lMufti->last_seen_at->diffForHumans(null, true) : 'Active' }}
-                                    </span>
-                                </div>
+                            </div>
+                            <div class="pt-2.5 border-top mt-auto d-flex align-items-center justify-content-between text-muted" style="font-size: 0.74rem;">
+                                <span class="d-flex align-items-center gap-1">
+                                    <i class="bi bi-inbox text-primary"></i>
+                                    <span>Queue: <strong class="text-dark">{{ $lMufti->pending_count ?? 0 }}</strong> pending</span>
+                                </span>
+                                <span>
+                                    <i class="bi bi-clock-history me-1"></i>{{ $lMufti->last_seen_at ? $lMufti->last_seen_at->diffForHumans(null, true) : 'Active' }}
+                                </span>
                             </div>
                         </div>
-                        @endforeach
                     </div>
-                @else
-                    <div class="text-center py-5 px-3 bg-light bg-opacity-50 rounded-3 border border-dashed" id="live-scholars-empty-state">
-                        <div class="d-inline-flex p-3 rounded-circle bg-white border shadow-xs text-muted mb-2.5">
-                            <i class="bi bi-person-x fs-3 text-slate-400"></i>
-                        </div>
-                        <div class="fw-semibold text-dark">No scholars are currently online.</div>
-                        <div class="text-muted small mt-1" style="font-size: 0.76rem;">
-                            Scholars on duty will automatically appear here in real-time when active.
+                    @empty
+                    @endforelse
+
+                    @forelse($liveQuestionersList as $lQ)
+                    <div class="col-12 col-md-6 col-xl-4 live-user-card-col" data-role="questioner">
+                        <div class="scholar-live-card p-3.5 rounded-3 border bg-white h-100 d-flex flex-column justify-content-between shadow-2xs">
+                            <div class="d-flex align-items-center gap-3 mb-2.5">
+                                <div class="position-relative flex-shrink-0">
+                                    <img src="{{ $lQ->avatar ? asset($lQ->avatar) : 'https://ui-avatars.com/api/?name='.urlencode($lQ->name).'&background=0284C7&color=fff&size=60' }}" 
+                                         alt="{{ $lQ->name }}" class="rounded-circle border" width="46" height="46" style="object-fit: cover;">
+                                    <span class="position-absolute bottom-0 end-0 p-1 bg-sky-500 border border-white rounded-circle" style="width: 11px; height: 11px;" title="Online now"></span>
+                                </div>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <a href="{{ route('admin.questioners.show', $lQ->id) }}" class="fw-bold text-dark text-decoration-none text-truncate d-block scholar-name-link" style="font-size: 0.88rem;" title="{{ $lQ->name }}">
+                                            {{ $lQ->name }}
+                                        </a>
+                                        <span class="badge rounded-pill px-2 py-0.5 text-2xs fw-bold" style="background: #F0F9FF; color: #0284C7; border: 1px solid #BAE6FD;">
+                                            Questioner
+                                        </span>
+                                    </div>
+                                    <div class="text-muted text-truncate mt-0.5" style="font-size: 0.72rem;">
+                                        {{ $lQ->email }}
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <span class="badge bg-light text-muted border rounded-pill px-2 py-0.5" style="font-size: 0.68rem;">
+                                            <i class="bi bi-geo-alt me-0.5"></i>{{ $lQ->country ?? 'Global' }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pt-2.5 border-top mt-auto d-flex align-items-center justify-content-between text-muted" style="font-size: 0.74rem;">
+                                <span class="d-flex align-items-center gap-1">
+                                    <i class="bi bi-question-circle text-info"></i>
+                                    <span>Questions: <strong class="text-dark">{{ $lQ->total_questions ?? 0 }}</strong></span>
+                                </span>
+                                <span>
+                                    <i class="bi bi-clock-history me-1"></i>{{ $lQ->last_seen_at ? $lQ->last_seen_at->diffForHumans(null, true) : 'Active' }}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                @endif
+                    @empty
+                    @endforelse
+
+                    @if($totalLiveCountVal === 0)
+                    <div class="col-12" id="live-scholars-empty-state">
+                        <div class="text-center py-5 px-3 bg-light bg-opacity-50 rounded-3 border border-dashed">
+                            <div class="d-inline-flex p-3 rounded-circle bg-white border shadow-xs text-muted mb-2.5">
+                                <i class="bi bi-people fs-3 text-slate-400"></i>
+                            </div>
+                            <div class="fw-semibold text-dark">No live users or scholars currently active.</div>
+                            <div class="text-muted small mt-1" style="font-size: 0.76rem;">
+                                Active scholars, questioners, and website visitors across any page will automatically appear here in real-time.
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+                </div>
             </div>
         </div>
 
@@ -986,75 +1049,210 @@ function updateScholarCards(muftis) {
     
     if (!container) return;
 
-    if (!muftis || muftis.length === 0) {
-        if (countBadge) {
-            countBadge.className = 'badge bg-light text-muted border rounded-pill px-3 py-1.5';
-            countBadge.style.cssText = 'font-size: 0.72rem;';
-            countBadge.innerHTML = '<span id="live-scholars-count-num">0</span> Online';
-        }
+    window.__liveData = window.__liveData || { muftis: [], questioners: [], visitors: [] };
+    window.__liveData.muftis = muftis || [];
+    renderFilteredLiveCards();
+}
+
+let currentLiveFilter = 'all';
+
+// Setup tab click events
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.live-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.live-filter-btn').forEach(b => {
+                b.classList.remove('active', 'bg-primary', 'text-white');
+                b.classList.add('text-muted');
+            });
+            this.classList.add('active', 'bg-primary', 'text-white');
+            this.classList.remove('text-muted');
+            currentLiveFilter = this.getAttribute('data-filter') || 'all';
+            renderFilteredLiveCards();
+        });
+    });
+});
+
+function renderFilteredLiveCards() {
+    const container = document.getElementById('live-scholars-grid-container');
+    if (!container) return;
+    
+    const countBadge = document.getElementById('live-scholars-count-badge');
+    const data = window.__liveData || { muftis: [], questioners: [], visitors: [] };
+    
+    const muftis = data.muftis || [];
+    const questioners = data.questioners || [];
+    const visitors = data.visitors || [];
+    
+    const totalCount = muftis.length + questioners.length + visitors.length;
+    
+    // Update badge counts
+    const countNum = document.getElementById('live-scholars-count-num');
+    if (countNum) countNum.innerText = totalCount;
+    
+    const fAll = document.getElementById('filter-count-all');
+    if (fAll) fAll.innerText = totalCount;
+    const fMufti = document.getElementById('filter-count-mufti');
+    if (fMufti) fMufti.innerText = muftis.length;
+    const fQ = document.getElementById('filter-count-questioner');
+    if (fQ) fQ.innerText = questioners.length;
+    const fV = document.getElementById('filter-count-visitor');
+    if (fV) fV.innerText = visitors.length;
+    
+    // Filter items
+    let cards = [];
+    if (currentLiveFilter === 'all' || currentLiveFilter === 'mufti') {
+        muftis.forEach(m => cards.push({ ...m, itemType: 'mufti' }));
+    }
+    if (currentLiveFilter === 'all' || currentLiveFilter === 'questioner') {
+        questioners.forEach(q => cards.push({ ...q, itemType: 'questioner' }));
+    }
+    if (currentLiveFilter === 'all' || currentLiveFilter === 'visitor') {
+        visitors.forEach(v => cards.push({ ...v, itemType: 'visitor' }));
+    }
+    
+    if (cards.length === 0) {
         container.innerHTML = `
             <div class="text-center py-5 px-3 bg-light bg-opacity-50 rounded-3 border border-dashed" id="live-scholars-empty-state">
                 <div class="d-inline-flex p-3 rounded-circle bg-white border shadow-xs text-muted mb-2.5">
-                    <i class="bi bi-person-x fs-3 text-slate-400"></i>
+                    <i class="bi bi-people fs-3 text-slate-400"></i>
                 </div>
-                <div class="fw-semibold text-dark">No scholars are currently online.</div>
+                <div class="fw-semibold text-dark">No active live users matching this category.</div>
                 <div class="text-muted small mt-1" style="font-size: 0.76rem;">
-                    Scholars on duty will automatically appear here in real-time when active.
+                    Active users will automatically stream in real-time across the entire platform.
                 </div>
             </div>
         `;
         return;
     }
     
-    if (countBadge) {
-        countBadge.className = 'badge';
-        countBadge.style.cssText = 'background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-size: 0.72rem; padding: 5px 12px; border-radius: 20px;';
-        countBadge.innerHTML = `<span class="live-pulse-dot me-1"></span> <span id="live-scholars-count-num">${muftis.length}</span> Online Now`;
-    }
-    
-    const colClass = muftis.length === 1 ? 'col-12 col-md-7 col-xl-5' : (muftis.length === 2 ? 'col-12 col-md-6' : 'col-12 col-md-6 col-xl-4');
-    
     let html = '<div class="row g-3" id="live-scholars-grid">';
-    muftis.forEach(m => {
-        html += `
-            <div class="${colClass} scholar-card-col">
-                <div class="scholar-live-card p-3.5 rounded-3 border bg-white h-100 d-flex flex-column justify-content-between">
-                    <div class="d-flex align-items-center gap-3 mb-2.5">
-                        <div class="position-relative flex-shrink-0">
-                            <img src="${m.avatar}" alt="${m.name}" class="rounded-circle border" width="46" height="46" style="object-fit: cover;">
-                            <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-white rounded-circle" style="width: 11px; height: 11px;" title="Online now"></span>
-                        </div>
-                        <div class="flex-grow-1 min-w-0">
-                            <a href="${m.history_url}" class="fw-bold text-dark text-decoration-none text-truncate d-block scholar-name-link" style="font-size: 0.9rem;" title="${m.name}">
-                                ${m.name}
-                            </a>
-                            <div class="d-flex align-items-center gap-2 mt-1">
-                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-0.5 d-inline-flex align-items-center gap-1" style="font-size: 0.68rem; font-weight: 700;">
-                                    <span class="live-pulse-dot" style="width: 5px; height: 5px;"></span> LIVE
-                                </span>
-                                <span class="badge bg-light text-muted border rounded-pill px-2.5 py-0.5 dash-live-timer font-monospace" data-start-time="${m.start_time}" style="font-size: 0.72rem;">
-                                    00:00:00
-                                </span>
+    cards.forEach(item => {
+        if (item.itemType === 'mufti') {
+            html += `
+                <div class="col-12 col-md-6 col-xl-4 live-user-card-col" data-role="mufti">
+                    <div class="scholar-live-card p-3.5 rounded-3 border bg-white h-100 d-flex flex-column justify-content-between shadow-2xs">
+                        <div class="d-flex align-items-center gap-3 mb-2.5">
+                            <div class="position-relative flex-shrink-0">
+                                <img src="${item.avatar}" alt="${item.name}" class="rounded-circle border" width="46" height="46" style="object-fit: cover;">
+                                <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-white rounded-circle" style="width: 11px; height: 11px;" title="Online now"></span>
+                            </div>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <a href="${item.history_url}" class="fw-bold text-dark text-decoration-none text-truncate d-block scholar-name-link" style="font-size: 0.88rem;" title="${item.name}">
+                                        ${item.name}
+                                    </a>
+                                    <span class="badge rounded-pill px-2 py-0.5 text-2xs fw-bold" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0;">
+                                        Scholar
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-0.5 d-inline-flex align-items-center gap-1" style="font-size: 0.68rem; font-weight: 700;">
+                                        <span class="live-pulse-dot" style="width: 5px; height: 5px;"></span> LIVE
+                                    </span>
+                                    <span class="badge bg-light text-muted border rounded-pill px-2.5 py-0.5 dash-live-timer font-monospace" data-start-time="${item.start_time}" style="font-size: 0.72rem;">
+                                        00:00:00
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="pt-2.5 border-top mt-auto d-flex align-items-center justify-content-between text-muted" style="font-size: 0.74rem;">
-                        <span class="d-flex align-items-center gap-1">
-                            <i class="bi bi-inbox text-primary"></i>
-                            <span>Queue: <strong class="text-dark">${m.pending_count || 0}</strong> pending</span>
-                        </span>
-                        <span><i class="bi bi-clock-history me-1"></i>${m.last_seen || 'Active'}</span>
+                        <div class="pt-2.5 border-top mt-auto d-flex align-items-center justify-content-between text-muted" style="font-size: 0.74rem;">
+                            <span class="d-flex align-items-center gap-1">
+                                <i class="bi bi-inbox text-primary"></i>
+                                <span>Queue: <strong class="text-dark">${item.pending_count || 0}</strong> pending</span>
+                            </span>
+                            <span><i class="bi bi-clock-history me-1"></i>${item.last_seen || 'Active'}</span>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+        } else if (item.itemType === 'questioner') {
+            html += `
+                <div class="col-12 col-md-6 col-xl-4 live-user-card-col" data-role="questioner">
+                    <div class="scholar-live-card p-3.5 rounded-3 border bg-white h-100 d-flex flex-column justify-content-between shadow-2xs">
+                        <div class="d-flex align-items-center gap-3 mb-2.5">
+                            <div class="position-relative flex-shrink-0">
+                                <img src="${item.avatar}" alt="${item.name}" class="rounded-circle border" width="46" height="46" style="object-fit: cover;">
+                                <span class="position-absolute bottom-0 end-0 p-1 bg-sky-500 border border-white rounded-circle" style="width: 11px; height: 11px;" title="Online now"></span>
+                            </div>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <a href="${item.profile_url}" class="fw-bold text-dark text-decoration-none text-truncate d-block scholar-name-link" style="font-size: 0.88rem;" title="${item.name}">
+                                        ${item.name}
+                                    </a>
+                                    <span class="badge rounded-pill px-2 py-0.5 text-2xs fw-bold" style="background: #F0F9FF; color: #0284C7; border: 1px solid #BAE6FD;">
+                                        Questioner
+                                    </span>
+                                </div>
+                                <div class="text-muted text-truncate mt-0.5" style="font-size: 0.72rem;">
+                                    ${item.email}
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <span class="badge bg-light text-muted border rounded-pill px-2 py-0.5" style="font-size: 0.68rem;">
+                                        <i class="bi bi-geo-alt me-0.5"></i>${item.country || 'Global'}
+                                    </span>
+                                    <span class="badge bg-slate-50 text-slate-600 border rounded-pill px-2 py-0.5 text-truncate" style="font-size: 0.68rem; max-width: 120px;" title="${item.page}">
+                                        ${item.page}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-2.5 border-top mt-auto d-flex align-items-center justify-content-between text-muted" style="font-size: 0.74rem;">
+                            <span class="d-flex align-items-center gap-1">
+                                <i class="bi bi-question-circle text-info"></i>
+                                <span>Questions: <strong class="text-dark">${item.total_q || 0}</strong></span>
+                            </span>
+                            <span><i class="bi bi-clock-history me-1"></i>${item.last_seen || 'Active'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (item.itemType === 'visitor') {
+            const deviceIcon = item.device === 'Mobile' ? 'bi-phone' : (item.device === 'Tablet' ? 'bi-tablet' : 'bi-laptop');
+            html += `
+                <div class="col-12 col-md-6 col-xl-4 live-user-card-col" data-role="visitor">
+                    <div class="scholar-live-card p-3.5 rounded-3 border bg-white h-100 d-flex flex-column justify-content-between shadow-2xs">
+                        <div class="d-flex align-items-center gap-3 mb-2.5">
+                            <div class="position-relative flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle border bg-slate-50 text-slate-600" style="width: 46px; height: 46px;">
+                                <i class="bi ${deviceIcon} fs-5"></i>
+                                <span class="position-absolute bottom-0 end-0 p-1 bg-emerald-500 border border-white rounded-circle" style="width: 11px; height: 11px;" title="Active"></span>
+                            </div>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="fw-bold text-dark text-truncate d-block" style="font-size: 0.88rem;">
+                                        ${item.name}
+                                    </span>
+                                    <span class="badge rounded-pill px-2 py-0.5 text-2xs fw-bold" style="background: #F8FAFC; color: #475569; border: 1px solid #E2E8F0;">
+                                        Visitor
+                                    </span>
+                                </div>
+                                <div class="text-muted text-truncate mt-0.5" style="font-size: 0.72rem;">
+                                    <i class="bi bi-geo-alt me-0.5 text-slate-400"></i>${item.country || 'Global Visitor'}
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <span class="badge bg-light text-muted border rounded-pill px-2 py-0.5 text-truncate" style="font-size: 0.68rem; max-width: 140px;" title="${item.page}">
+                                        ${item.page}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-2.5 border-top mt-auto d-flex align-items-center justify-content-between text-muted" style="font-size: 0.74rem;">
+                            <span class="d-flex align-items-center gap-1">
+                                <i class="bi bi-browser-chrome text-secondary"></i>
+                                <span>${item.browser} &bull; ${item.device}</span>
+                            </span>
+                            <span><i class="bi bi-clock-history me-1"></i>${item.last_seen || 'Active'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
     });
     html += '</div>';
     container.innerHTML = html;
     updateDashLiveTimers();
 }
 
-// ── Polling: Live Visitors & Real-time Scholars ──
+// ── Polling: Live Visitors, Scholars, Questioners ──
 async function fetchLiveUsers() {
     if (document.hidden) return;
     try {
@@ -1066,10 +1264,13 @@ async function fetchLiveUsers() {
             if (countEl && countEl.innerText !== String(data.byIp)) {
                 countEl.innerText = data.byIp;
             }
-            // Update live scholars cards
-            if (data.onlineMuftis !== undefined) {
-                updateScholarCards(data.onlineMuftis);
-            }
+            
+            window.__liveData = {
+                muftis: data.onlineMuftis || [],
+                questioners: data.onlineQuestioners || [],
+                visitors: data.onlineVisitors || []
+            };
+            renderFilteredLiveCards();
         }
     } catch (error) {}
 }

@@ -1,5 +1,0 @@
-[10-Apr-2026 22:37:44 America/Boise] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'madhab' in 'field list' in /home1/ensplpmy/public_html/darulifta-by-haris/public/consolidated_migration.php:84
-Stack trace:
-#0 /home1/ensplpmy/public_html/darulifta-by-haris/public/consolidated_migration.php(84): PDO->query('SELECT id, madh...')
-#1 {main}
-  thrown in /home1/ensplpmy/public_html/darulifta-by-haris/public/consolidated_migration.php on line 84
