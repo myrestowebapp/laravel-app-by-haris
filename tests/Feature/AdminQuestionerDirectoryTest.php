@@ -105,6 +105,46 @@ class AdminQuestionerDirectoryTest extends TestCase
         $responseCountry->assertStatus(200);
         $responseCountry->assertSee('Zaid Questioner');
         $responseCountry->assertDontSee('Ahmad Questioner');
+
+        // Test Rafeeq search with Arabic/Display name and mobile
+        $userRole = Role::firstOrCreate(['id' => 2], ['name' => 'User']);
+        $rafeeq = User::create([
+            'role_id'    => $userRole->id,
+            'name'       => 'Rafeeq Al-Kausari',
+            'despl_name' => 'رفيق الكوثري',
+            'email'      => 'rafeeq@example.org',
+            'mobile'     => '+919876543210',
+            'country'    => 'United Arab Emirates',
+        ]);
+        QuestionAndAnswer::create([
+            'question_id' => 'Q0078',
+            'user_id'     => $rafeeq->id,
+            'title'       => 'Ruling on ghusl nose cleaning',
+            'body'        => 'Is passing water specifically mandatory?',
+            'status'      => 'published',
+            'is_public'   => true,
+        ]);
+
+        // 1. Search lowercase "rafeeq"
+        $respLower = $this->actingAs($this->admin)->get(route('admin.questioners.index', ['search' => 'rafeeq']));
+        $respLower->assertStatus(200);
+        $respLower->assertSee('رفيق الكوثري');
+        $respLower->assertSee('rafeeq@example.org');
+
+        // 2. Search Arabic name "رفيق"
+        $respArabic = $this->actingAs($this->admin)->get(route('admin.questioners.index', ['search' => 'رفيق']));
+        $respArabic->assertStatus(200);
+        $respArabic->assertSee('رفيق الكوثري');
+
+        // 3. Search by mobile number
+        $respMobile = $this->actingAs($this->admin)->get(route('admin.questioners.index', ['search' => '9876543210']));
+        $respMobile->assertStatus(200);
+        $respMobile->assertSee('رفيق الكوثري');
+
+        // 4. Search by Question ID linked to questioner
+        $respQid = $this->actingAs($this->admin)->get(route('admin.questioners.index', ['search' => 'Q0078']));
+        $respQid->assertStatus(200);
+        $respQid->assertSee('رفيق الكوثري');
     }
 
     public function test_questioner_directory_sorting(): void

@@ -36,20 +36,47 @@ class QuestionerController extends Controller
             $perPage = 20;
         }
 
-        $query = User::whereHas('questions')
+        $query = User::where(function ($q) {
+                $q->whereHas('questions')
+                  ->orWhereHas('role', fn($r) => $r->whereIn('name', ['questioner', 'user']));
+            })
             ->withCount([
                 'questions as total_questions',
                 'questions as pending_questions' => fn($q) => $q->whereIn('status', ['pending', 'accepted', 'assigned', 'answered']),
                 'questions as published_questions' => fn($q) => $q->where('status', 'published'),
             ]);
 
-        // Multi-field search
+        // Multi-field robust search (Full name, first/last name, Arabic, email, mobile, country, and question id/content)
         if ($request->filled('search')) {
             $term = trim($request->search);
-            $query->where(function ($q) use ($term) {
+            $words = array_values(array_filter(explode(' ', $term)));
+
+            $query->where(function ($q) use ($term, $words) {
+                // 1. Direct or partial match across all core user identity fields
                 $q->where('name', 'like', "%{$term}%")
+                  ->orWhere('despl_name', 'like', "%{$term}%")
                   ->orWhere('email', 'like', "%{$term}%")
-                  ->orWhere('country', 'like', "%{$term}%");
+                  ->orWhere('mobile', 'like', "%{$term}%")
+                  ->orWhere('country', 'like', "%{$term}%")
+                  // 2. Search by questions asked by this questioner (Question ID or Title)
+                  ->orWhereHas('questions', function ($sub) use ($term) {
+                      $sub->where('question_id', 'like', "%{$term}%")
+                          ->orWhere('title', 'like', "%{$term}%");
+                  });
+
+                // 3. Multi-token / First Name + Last Name matching
+                if (count($words) > 1) {
+                    $q->orWhere(function ($multi) use ($words) {
+                        foreach ($words as $w) {
+                            $multi->where(function ($part) use ($w) {
+                                $part->where('name', 'like', "%{$w}%")
+                                     ->orWhere('despl_name', 'like', "%{$w}%")
+                                     ->orWhere('email', 'like', "%{$w}%")
+                                     ->orWhere('country', 'like', "%{$w}%");
+                            });
+                        }
+                    });
+                }
             });
         }
 
@@ -59,10 +86,16 @@ class QuestionerController extends Controller
         $questioners = $query->paginate($perPage)->withQueryString();
 
         // High-level KPI summary cards for admin overview
-        $totalQuestioners = User::whereHas('questions')->count();
+        $totalQuestioners = User::where(function ($q) {
+                $q->whereHas('questions')
+                  ->orWhereHas('role', fn($r) => $r->whereIn('name', ['questioner', 'user']));
+            })->count();
         $activeInquirers = User::whereHas('questions', fn($q) => $q->whereIn('status', ['pending', 'accepted', 'assigned', 'answered']))->count();
         $publishedInquirers = User::whereHas('questions', fn($q) => $q->where('status', 'published'))->count();
-        $countriesCount = User::whereHas('questions')
+        $countriesCount = User::where(function ($q) {
+                $q->whereHas('questions')
+                  ->orWhereHas('role', fn($r) => $r->whereIn('name', ['questioner', 'user']));
+            })
             ->whereNotNull('country')
             ->where('country', '!=', '')
             ->distinct()
@@ -88,7 +121,10 @@ class QuestionerController extends Controller
             $ids = array_filter(array_map('trim', explode(',', $ids)));
         }
 
-        $query = User::whereHas('questions')
+        $query = User::where(function ($q) {
+                $q->whereHas('questions')
+                  ->orWhereHas('role', fn($r) => $r->whereIn('name', ['questioner', 'user']));
+            })
             ->withCount([
                 'questions as total_questions',
                 'questions as pending_questions' => fn($q) => $q->whereIn('status', ['pending', 'accepted', 'assigned', 'answered']),
@@ -99,10 +135,30 @@ class QuestionerController extends Controller
             $query->whereIn('id', $ids);
         } elseif ($request->filled('search')) {
             $term = trim($request->search);
-            $query->where(function ($q) use ($term) {
+            $words = array_values(array_filter(explode(' ', $term)));
+            $query->where(function ($q) use ($term, $words) {
                 $q->where('name', 'like', "%{$term}%")
+                  ->orWhere('despl_name', 'like', "%{$term}%")
                   ->orWhere('email', 'like', "%{$term}%")
-                  ->orWhere('country', 'like', "%{$term}%");
+                  ->orWhere('mobile', 'like', "%{$term}%")
+                  ->orWhere('country', 'like', "%{$term}%")
+                  ->orWhereHas('questions', function ($sub) use ($term) {
+                      $sub->where('question_id', 'like', "%{$term}%")
+                          ->orWhere('title', 'like', "%{$term}%");
+                  });
+
+                if (count($words) > 1) {
+                    $q->orWhere(function ($multi) use ($words) {
+                        foreach ($words as $w) {
+                            $multi->where(function ($part) use ($w) {
+                                $part->where('name', 'like', "%{$w}%")
+                                     ->orWhere('despl_name', 'like', "%{$w}%")
+                                     ->orWhere('email', 'like', "%{$w}%")
+                                     ->orWhere('country', 'like', "%{$w}%");
+                            });
+                        }
+                    });
+                }
             });
         }
 

@@ -16,12 +16,38 @@
         <h5 class="fw-bold mb-1 text-dark">Smart Rule Automation</h5>
         <p class="text-muted small mb-0">Automate curated fatwas on the portal homepage based on Hijri calendar dates & geographic signals.</p>
     </div>
-    <a href="{{ route('admin.featured-rules.create') }}" class="btn btn-modern-primary">
-        <i class="bi bi-plus-lg"></i> Create New Rule
-    </a>
+    <div class="d-flex align-items-center gap-2">
+        <form method="GET" action="{{ route('admin.featured-rules.index') }}" id="featuredRulesFilterForm" class="d-flex align-items-center">
+            <div class="position-relative" style="min-width: 260px;">
+                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" id="featuredSearchIcon" style="font-size: 0.85rem;"></i>
+                <input type="text" 
+                       name="search" 
+                       id="featuredSearchInput"
+                       class="form-control modern-input ps-5 pe-5 py-1.5" 
+                       style="font-size: 0.84rem;"
+                       placeholder="Search rules, categories, titles..." 
+                       value="{{ request('search') }}"
+                       autocomplete="off">
+                
+                {{-- Live Spinner Indicator --}}
+                <div class="spinner-border text-primary spinner-border-sm position-absolute top-50 translate-middle-y" id="featuredSearchSpinner" style="right: 34px; display: none; width: 14px; height: 14px;" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+
+                {{-- Clear Button --}}
+                <button type="button" class="btn btn-sm text-muted position-absolute top-50 end-0 translate-middle-y me-2 p-0 d-flex align-items-center justify-content-center" id="featuredClearBtn" style="display: none; width: 18px; height: 18px; border-radius: 50%; background: #E2E8F0;" title="Clear Search">
+                    <i class="bi bi-x" style="font-size: 0.75rem;"></i>
+                </button>
+            </div>
+        </form>
+
+        <a href="{{ route('admin.featured-rules.create') }}" class="btn btn-modern-primary text-nowrap">
+            <i class="bi bi-plus-lg"></i> Create New Rule
+        </a>
+    </div>
 </div>
 
-<div class="modern-card overflow-hidden">
+<div class="modern-card overflow-hidden" id="featuredRulesTableContainer">
     <div class="p-3.5 px-4 bg-white border-bottom d-flex justify-content-between align-items-center">
         <span class="small text-muted fw-semibold"><i class="bi bi-info-circle me-1.5 text-primary"></i>Rules are evaluated in strict priority order (highest first).</span>
     </div>
@@ -141,5 +167,22 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script src="{{ asset('js/admin-live-search.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        new AdminLiveSearch({
+            form: '#featuredRulesFilterForm',
+            input: '#featuredSearchInput',
+            clearBtn: '#featuredClearBtn',
+            spinner: '#featuredSearchSpinner',
+            searchIcon: '#featuredSearchIcon',
+            container: '#featuredRulesTableContainer',
+            debounceMs: 350
+        });
+    });
+</script>
+@endpush
 
 @endsection

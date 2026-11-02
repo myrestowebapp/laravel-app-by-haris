@@ -14,7 +14,7 @@ class MuftiManagementController extends Controller
 {
     use HandleAvatars;
     /** List all scholars with the 'mufti' role */
-    public function index()
+    public function index(Request $request)
     {
         $query = User::whereHas('role', fn($q) => $q->where('name', 'mufti'))
             ->withCount([
@@ -28,7 +28,33 @@ class MuftiManagementController extends Controller
                 $q->from('user_login_logs')
                     ->whereColumn('user_login_logs.user_id', 'users.id')
                     ->selectRaw('COALESCE(SUM(duration_seconds), 0)');
-            }, 'total_time_spent')
+            }, 'total_time_spent');
+
+        if ($request->filled('search')) {
+            $term = trim($request->search);
+            $words = array_values(array_filter(explode(' ', $term)));
+            $query->where(function ($q) use ($term, $words) {
+                $q->where('name', 'like', "%{$term}%")
+                  ->orWhere('despl_name', 'like', "%{$term}%")
+                  ->orWhere('email', 'like', "%{$term}%")
+                  ->orWhere('country', 'like', "%{$term}%")
+                  ->orWhereHas('madhab', fn($m) => $m->where('name', 'like', "%{$term}%"));
+
+                if (count($words) > 1) {
+                    $q->orWhere(function ($multi) use ($words) {
+                        foreach ($words as $w) {
+                            $multi->where(function ($sub) use ($w) {
+                                $sub->where('name', 'like', "%{$w}%")
+                                    ->orWhere('despl_name', 'like', "%{$w}%")
+                                    ->orWhere('email', 'like', "%{$w}%");
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        $query
             // 1. Scholars who never logged in are placed at the very end
             ->orderByRaw('CASE WHEN (users.last_login_at IS NOT NULL OR users.login_count > 0) THEN 0 ELSE 1 END ASC')
             // 2. Profile image priority: scholars with custom profile image get higher priority
@@ -43,7 +69,7 @@ class MuftiManagementController extends Controller
             ->latest('last_login_at')
             ->orderBy('users.id');
 
-        $muftis = $query->paginate(8);
+        $muftis = $query->paginate(8)->withQueryString();
 
         $isSqlite = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite';
         $diffSql = $isSqlite ? 'ROUND(AVG(julianday(updated_at) - julianday(created_at)), 1)' : 'AVG(DATEDIFF(updated_at, created_at))';

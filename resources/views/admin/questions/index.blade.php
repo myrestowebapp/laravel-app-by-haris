@@ -124,22 +124,34 @@
 
 {{-- 2. Horizontal Filter Bar Card (Reference Design) --}}
 <div class="modern-card p-3 mb-4">
-    <form method="GET" action="{{ route('admin.questions.index') }}" class="row g-2 align-items-center">
-        {{-- Search Input --}}
+    <form method="GET" action="{{ route('admin.questions.index') }}" id="questionsFilterForm" class="row g-2 align-items-center">
+        {{-- Search Input with Live Search Spinner & Clear Button --}}
         <div class="col-12 col-lg">
             <div class="position-relative">
-                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
+                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" id="questionsSearchIcon" style="font-size: 0.85rem;"></i>
                 <input type="text" 
                        name="search" 
-                       class="form-control modern-input ps-5" 
-                       placeholder="Search by Question ID, questioner name, email or keywords..."
-                       value="{{ request('search') }}">
+                       id="questionsSearchInput"
+                       class="form-control modern-input ps-5 pe-5" 
+                       placeholder="Search by Question ID, questioner name, email, answer or keywords..."
+                       value="{{ request('search') }}"
+                       autocomplete="off">
+                
+                {{-- Live Spinner Indicator --}}
+                <div class="spinner-border text-primary spinner-border-sm position-absolute top-50 translate-middle-y" id="questionsSearchSpinner" style="right: 36px; display: none; width: 16px; height: 16px;" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+
+                {{-- Clear Button --}}
+                <button type="button" class="btn btn-sm text-muted position-absolute top-50 end-0 translate-middle-y me-2 p-0 d-flex align-items-center justify-content-center" id="questionsClearBtn" style="display: none; width: 20px; height: 20px; border-radius: 50%; background: #E2E8F0;" title="Clear Search">
+                    <i class="bi bi-x" style="font-size: 0.85rem;"></i>
+                </button>
             </div>
         </div>
 
         {{-- Status Filter --}}
         <div class="col-6 col-md-3 col-lg-2">
-            <select name="status" class="form-select modern-select">
+            <select name="status" class="form-select modern-select live-filter-select">
                 <option value="">All Statuses</option>
                 @foreach($statusMap as $val => $lbl)
                     <option value="{{ $val }}" {{ request('status') === $val ? 'selected' : '' }}>{{ $lbl }}</option>
@@ -149,7 +161,7 @@
 
         {{-- Madhab Filter --}}
         <div class="col-6 col-md-3 col-lg-2">
-            <select name="madhab_id" class="form-select modern-select">
+            <select name="madhab_id" class="form-select modern-select live-filter-select">
                 <option value="">All Madhabs</option>
                 @foreach(\App\Models\Madhab::all() as $m)
                     <option value="{{ $m->id }}" {{ request('madhab_id') == $m->id ? 'selected' : '' }}>{{ $m->name }}</option>
@@ -159,7 +171,7 @@
 
         {{-- Assigned Scholar Filter --}}
         <div class="col-6 col-md-3 col-lg-2">
-            <select name="assigned_to" class="form-select modern-select">
+            <select name="assigned_to" class="form-select modern-select live-filter-select">
                 <option value="">All Assignments</option>
                 @foreach($muftis as $mufti)
                     <option value="{{ $mufti->id }}" {{ request('assigned_to') == $mufti->id ? 'selected' : '' }}>
@@ -171,10 +183,10 @@
 
         {{-- Action Buttons --}}
         <div class="col-6 col-md-3 col-lg-auto d-flex gap-2">
-            <button type="submit" class="btn btn-modern-primary flex-grow-1 flex-md-grow-0">
+            <button type="submit" class="btn btn-modern-primary flex-grow-1 flex-md-grow-0" id="questionsFilterSubmit">
                 <i class="bi bi-funnel"></i> Filter
             </button>
-            <a href="{{ route('admin.questions.index') }}" class="btn btn-modern-secondary flex-grow-1 flex-md-grow-0" title="Reset Filters">
+            <a href="{{ route('admin.questions.index') }}" class="btn btn-modern-secondary flex-grow-1 flex-md-grow-0" id="questionsResetBtn" title="Reset Filters">
                 <i class="bi bi-arrow-counterclockwise"></i> Reset
             </a>
         </div>
@@ -208,7 +220,7 @@
 </div>
 
 {{-- 4. Question Management Table Card (Reference Design) --}}
-<div class="modern-card overflow-hidden">
+<div class="modern-card overflow-hidden" id="questionsTableContainer">
     <div class="table-responsive">
         <table class="modern-table align-middle">
             <thead>
@@ -500,15 +512,42 @@
 <x-fatwa-delete-security-modal />
 
 @push('scripts')
+<script src="{{ asset('js/admin-live-search.js') }}"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    function setupQuestionCheckboxes() {
         const checkAll = document.getElementById('checkAll');
         const checkboxes = document.querySelectorAll('.row-checkbox');
-        if (checkAll) {
+        if (checkAll && checkboxes.length) {
             checkAll.addEventListener('change', function() {
                 checkboxes.forEach(cb => cb.checked = checkAll.checked);
             });
         }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        setupQuestionCheckboxes();
+
+        // Initialize Universal Live Search
+        const liveQuestionsSearch = new AdminLiveSearch({
+            form: '#questionsFilterForm',
+            input: '#questionsSearchInput',
+            clearBtn: '#questionsClearBtn',
+            spinner: '#questionsSearchSpinner',
+            searchIcon: '#questionsSearchIcon',
+            container: '#questionsTableContainer',
+            debounceMs: 350,
+            onUpdated: function() {
+                setupQuestionCheckboxes();
+            }
+        });
+
+        // Live update on filter dropdown changes
+        const filterSelects = document.querySelectorAll('.live-filter-select');
+        filterSelects.forEach(sel => {
+            sel.addEventListener('change', function() {
+                liveQuestionsSearch.executeSearch({ resetPage: true });
+            });
+        });
     });
 
     function triggerSecurityDelete(btn) {

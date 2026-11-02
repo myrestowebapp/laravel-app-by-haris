@@ -355,14 +355,22 @@
 
                     <div class="d-flex align-items-center gap-2 w-100 w-md-auto">
                         {{-- Live Category Search --}}
-                        <div class="position-relative flex-grow-1 flex-md-grow-0" style="min-width: 230px;">
+                        <div class="position-relative flex-grow-1 flex-md-grow-0" style="min-width: 240px;">
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.82rem;"></i>
                             <input type="text" 
                                    id="treeSearchInput" 
-                                   class="form-control cat-form-input ps-5 py-1.5" 
+                                   class="form-control cat-form-input ps-5 pe-4 py-1.5" 
                                    style="font-size: 0.84rem;"
                                    placeholder="Search categories..." 
-                                   oninput="filterCategoryTree(this.value)">
+                                   oninput="filterCategoryTree(this.value); document.getElementById('treeClearBtn').style.display = this.value.length ? 'flex' : 'none';">
+                            <button type="button" 
+                                    id="treeClearBtn"
+                                    class="position-absolute top-50 end-0 translate-middle-y me-2 border-0 rounded-circle text-muted align-items-center justify-content-center"
+                                    style="display: none; width: 18px; height: 18px; background: #E2E8F0; font-size: 0.70rem; cursor: pointer;"
+                                    title="Clear"
+                                    onclick="document.getElementById('treeSearchInput').value = ''; filterCategoryTree(''); this.style.display = 'none'; document.getElementById('treeSearchInput').focus();">
+                                <i class="bi bi-x"></i>
+                            </button>
                         </div>
 
                         {{-- Expand All --}}

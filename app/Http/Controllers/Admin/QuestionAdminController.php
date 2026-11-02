@@ -40,14 +40,39 @@ class QuestionAdminController extends Controller
         }
         if ($request->filled('search')) {
             $term = trim($request->search);
-            $query->where(function ($q) use ($term) {
-                $q->where('question_id', 'like', '%' . $term . '%')
-                  ->orWhere('title', 'like', '%' . $term . '%')
-                  ->orWhere('body', 'like', '%' . $term . '%')
+            $words = array_values(array_filter(explode(' ', $term)));
+
+            $query->where(function ($q) use ($term, $words) {
+                $q->where('question_id', 'like', "%{$term}%")
+                  ->orWhere('title', 'like', "%{$term}%")
+                  ->orWhere('body', 'like', "%{$term}%")
+                  ->orWhere('answer', 'like', "%{$term}%")
                   ->orWhereHas('user', function ($u) use ($term) {
-                      $u->where('name', 'like', '%' . $term . '%')
-                        ->orWhere('email', 'like', '%' . $term . '%');
+                      $u->where('name', 'like', "%{$term}%")
+                        ->orWhere('despl_name', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%")
+                        ->orWhere('mobile', 'like', "%{$term}%");
+                  })
+                  ->orWhereHas('assignedMufti', function ($m) use ($term) {
+                      $m->where('name', 'like', "%{$term}%")
+                        ->orWhere('despl_name', 'like', "%{$term}%");
+                  })
+                  ->orWhereHas('category', function ($c) use ($term) {
+                      $c->where('name', 'like', "%{$term}%");
                   });
+
+                // Multi-token name or phrase matching
+                if (count($words) > 1) {
+                    $q->orWhere(function ($multi) use ($words) {
+                        foreach ($words as $w) {
+                            $multi->where(function ($sub) use ($w) {
+                                $sub->where('title', 'like', "%{$w}%")
+                                    ->orWhere('body', 'like', "%{$w}%")
+                                    ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$w}%")->orWhere('despl_name', 'like', "%{$w}%"));
+                            });
+                        }
+                    });
+                }
             });
         }
 

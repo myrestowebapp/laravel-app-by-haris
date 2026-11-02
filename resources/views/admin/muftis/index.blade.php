@@ -62,7 +62,46 @@
     </div>
 </div>
 
-<div class="row g-2 g-sm-3 g-md-4">
+{{-- Search & Faculty Filter Toolbar --}}
+<div class="modern-card p-3 mb-4">
+    <form method="GET" action="{{ route('admin.muftis.index') }}" id="muftiFilterForm" class="row g-2 align-items-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="position-relative">
+                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" id="muftiSearchIcon" style="font-size: 0.85rem;"></i>
+                <input type="text" 
+                       name="search" 
+                       id="muftiSearchInput"
+                       class="form-control modern-input ps-5 pe-5" 
+                       placeholder="Search scholars by name, Arabic title, email or country..." 
+                       value="{{ request('search') }}"
+                       autocomplete="off">
+                
+                {{-- Live Spinner Indicator --}}
+                <div class="spinner-border text-primary spinner-border-sm position-absolute top-50 translate-middle-y" id="muftiSearchSpinner" style="right: 36px; display: none; width: 16px; height: 16px;" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+
+                {{-- Clear Button --}}
+                <button type="button" class="btn btn-sm text-muted position-absolute top-50 end-0 translate-middle-y me-2 p-0 d-flex align-items-center justify-content-center" id="muftiClearBtn" style="display: none; width: 20px; height: 20px; border-radius: 50%; background: #E2E8F0;" title="Clear Search">
+                    <i class="bi bi-x" style="font-size: 0.85rem;"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-12 col-md-4 col-lg-6 d-flex justify-content-md-end gap-2">
+            <button type="submit" class="btn btn-modern-primary">
+                <i class="bi bi-funnel me-1"></i> Filter
+            </button>
+            @if(request('search'))
+                <a href="{{ route('admin.muftis.index') }}" class="btn btn-modern-secondary" title="Reset Search">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
+            @endif
+        </div>
+    </form>
+</div>
+
+<div id="muftiCardsContainer">
+    <div class="row g-2 g-sm-3 g-md-4">
     @forelse($muftis as $mufti)
     @php
         $isMuftiOnline = $mufti->isOnline(5);
@@ -177,9 +216,27 @@
     @endforelse
 </div>
 
-<div class="mt-4 d-flex justify-content-center">
-    {{ $muftis->links() }}
+    <div class="mt-4 d-flex justify-content-center">
+        {{ $muftis->links() }}
+    </div>
 </div>
+
+@push('scripts')
+<script src="{{ asset('js/admin-live-search.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        new AdminLiveSearch({
+            form: '#muftiFilterForm',
+            input: '#muftiSearchInput',
+            clearBtn: '#muftiClearBtn',
+            spinner: '#muftiSearchSpinner',
+            searchIcon: '#muftiSearchIcon',
+            container: '#muftiCardsContainer',
+            debounceMs: 350
+        });
+    });
+</script>
+@endpush
 
 @push('styles')
 <style>

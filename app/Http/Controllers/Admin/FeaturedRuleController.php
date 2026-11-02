@@ -11,11 +11,23 @@ use Illuminate\Http\Request;
 
 class FeaturedRuleController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $rules = FatwaFeaturedRule::with(['category', 'madhab'])
-            ->orderByDesc('priority')
-            ->get();
+        $query = FatwaFeaturedRule::with(['category', 'madhab'])
+            ->orderByDesc('priority');
+
+        if ($request->filled('search')) {
+            $term = trim($request->search);
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', "%{$term}%")
+                  ->orWhere('section_label', 'like', "%{$term}%")
+                  ->orWhere('section_sub', 'like', "%{$term}%")
+                  ->orWhereHas('category', fn($c) => $c->where('name', 'like', "%{$term}%"))
+                  ->orWhereHas('madhab', fn($m) => $m->where('name', 'like', "%{$term}%"));
+            });
+        }
+
+        $rules = $query->get();
         return view('admin.featured-rules.index', compact('rules'));
     }
 
