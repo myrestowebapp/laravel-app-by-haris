@@ -14,6 +14,8 @@
             this.spinner = typeof options.spinner === 'string' ? document.querySelector(options.spinner) : options.spinner;
             this.searchIcon = typeof options.searchIcon === 'string' ? document.querySelector(options.searchIcon) : options.searchIcon;
             this.container = typeof options.container === 'string' ? document.querySelector(options.container) : options.container;
+            this.statusEl = typeof options.statusEl === 'string' ? document.querySelector(options.statusEl) : options.statusEl;
+            this.statusTextEl = typeof options.statusTextEl === 'string' ? document.querySelector(options.statusTextEl) : options.statusTextEl;
             
             this.debounceMs = options.debounceMs || 350;
             this.onUpdated = typeof options.onUpdated === 'function' ? options.onUpdated : null;
@@ -31,6 +33,7 @@
             // 1. Debounced Input Keystroke Listener
             this.input.addEventListener('input', () => {
                 this.toggleClearButton();
+                this.updateSearchStatus(true);
                 clearTimeout(this.timer);
                 this.timer = setTimeout(() => {
                     this.executeSearch({ resetPage: true });
@@ -87,13 +90,28 @@
         clearSearch() {
             this.input.value = '';
             this.toggleClearButton();
+            this.updateSearchStatus(false);
             this.input.focus();
             clearTimeout(this.timer);
             this.executeSearch({ resetPage: true });
         }
 
+        updateSearchStatus(loading) {
+            if (!this.statusEl) return;
+            const val = this.input ? this.input.value.trim() : '';
+            if (val.length > 0) {
+                this.statusEl.style.display = 'flex';
+                if (this.statusTextEl) {
+                    this.statusTextEl.textContent = `Searching "${val}"... (auto search)`;
+                }
+            } else {
+                this.statusEl.style.display = 'none';
+            }
+        }
+
         setLoading(loading) {
             this.isSearching = loading;
+            this.updateSearchStatus(loading);
             if (this.spinner) {
                 this.spinner.style.display = loading ? 'inline-block' : 'none';
             }
