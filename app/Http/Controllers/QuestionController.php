@@ -147,6 +147,23 @@ class QuestionController extends Controller
             null, $question->created_at
         );
 
+        if (class_exists(\App\Models\UserActivityLog::class)) {
+            $qUser = \App\Models\User::find($userId);
+            \App\Models\UserActivityLog::record(
+                action: 'question_submitted',
+                description: 'Submitted new inquiry #' . $question->question_id . ' ("' . \Illuminate\Support\Str::limit($question->title, 40) . '")',
+                status: 'success',
+                user: $qUser,
+                identifier: $qUser?->email,
+                actionCategory: 'question',
+                contextData: [
+                    'question_id' => $question->question_id,
+                    'category_id' => $question->category_id,
+                    'madhab_id'   => $question->madhab_id,
+                ]
+            );
+        }
+
         // Email admin
         $admin = User::whereHas('role', fn($q) => $q->where('name', 'admin'))->first();
         if ($admin) {

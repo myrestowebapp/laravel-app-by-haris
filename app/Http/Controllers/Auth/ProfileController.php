@@ -100,6 +100,18 @@ class ProfileController extends Controller
 
         $user->update($updateData);
 
+        if (class_exists(\App\Models\UserActivityLog::class)) {
+            \App\Models\UserActivityLog::record(
+                action: 'profile_completed',
+                description: 'Completed profile details (Country: ' . $user->country . ', Mobile: ' . $user->mobile . ')',
+                status: 'success',
+                user: $user,
+                identifier: $user->email,
+                actionCategory: 'profile',
+                contextData: ['country' => $user->country, 'state' => $user->state, 'mobile' => $user->mobile]
+            );
+        }
+
         // Atomically pull pending question from session to guarantee single execution
         if (session()->has('pending_question')) {
             $pendingQuestion = session()->pull('pending_question');

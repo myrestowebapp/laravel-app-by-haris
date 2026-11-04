@@ -11,6 +11,27 @@
 
 @section('content')
 
+{{-- Real-time Sentinel Bar with Sound Notification Toggle & User Logs Link --}}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-1 gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-white text-dark border px-3 py-1.5 rounded-pill shadow-2xs d-inline-flex align-items-center gap-1.5" style="font-size: 0.76rem;">
+            <span class="live-pulse-dot" style="width: 6px; height: 6px;"></span>
+            <span>Real-time Sentinel Active</span>
+        </span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-sm btn-white border rounded-pill px-3 py-1.5 fw-semibold shadow-2xs d-inline-flex align-items-center gap-1.5" id="btn-sound-toggle" onclick="toggleDashboardSound()" title="Toggle Real-Time Sound Notification">
+            <i class="bi bi-volume-up-fill text-primary" id="sound-icon"></i>
+            <span id="sound-label" style="font-size: 0.78rem;">Sound: ON</span>
+        </button>
+
+        <a href="{{ route('admin.user-logs.index') }}" class="btn btn-sm btn-white border rounded-pill px-3 py-1.5 fw-semibold shadow-2xs d-inline-flex align-items-center gap-1.5" style="font-size: 0.78rem;">
+            <i class="bi bi-person-lines-fill text-primary"></i>
+            <span>User Behavior Logs</span>
+        </a>
+    </div>
+</div>
+
 {{-- 1. Top Modern Metric Cards (8 Core Signals) with Generous Spacing & Padding --}}
 <div class="row g-3 mb-4 pb-1">
     @php
@@ -1271,8 +1292,153 @@ async function fetchLiveUsers() {
                 visitors: data.onlineVisitors || []
             };
             renderFilteredLiveCards();
+
+            // Check for new real-time activity events
+            if (data.latestEvent && data.latestEvent.id) {
+                if (window.__lastSeenEventId !== undefined && window.__lastSeenEventId !== null && data.latestEvent.id > window.__lastSeenEventId) {
+                    playNotificationSound(data.latestEvent.status);
+                    showDashboardToast(data.latestEvent);
+                }
+                window.__lastSeenEventId = data.latestEvent.id;
+            }
         }
     } catch (error) {}
+}
+
+// ── Audio Notification Synthesizer (Web Audio API - No external mp3 files required) ──
+window.__dashSoundMuted = localStorage.getItem('dash_sound_muted') === 'true';
+
+function updateSoundToggleButton() {
+    const icon = document.getElementById('sound-icon');
+    const label = document.getElementById('sound-label');
+    const btn = document.getElementById('btn-sound-toggle');
+    if (!icon || !label) return;
+
+    if (window.__dashSoundMuted) {
+        icon.className = 'bi bi-volume-mute-fill text-muted';
+        label.innerText = 'Sound: OFF';
+        label.className = 'text-muted';
+        if (btn) btn.classList.add('bg-light');
+    } else {
+        icon.className = 'bi bi-volume-up-fill text-primary';
+        label.innerText = 'Sound: ON';
+        label.className = 'text-dark';
+        if (btn) btn.classList.remove('bg-light');
+    }
+}
+
+function toggleDashboardSound() {
+    window.__dashSoundMuted = !window.__dashSoundMuted;
+    localStorage.setItem('dash_sound_muted', window.__dashSoundMuted ? 'true' : 'false');
+    updateSoundToggleButton();
+    if (!window.__dashSoundMuted) {
+        playNotificationSound('chime');
+    }
+}
+document.addEventListener('DOMContentLoaded', updateSoundToggleButton);
+
+function playNotificationSound(type = 'chime') {
+    if (window.__dashSoundMuted) return;
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const now = ctx.currentTime;
+
+        if (type === 'failed') {
+            // Soft Alert Double Tone (descending: 440Hz -> 330Hz)
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, now);
+            osc.frequency.setValueAtTime(329.63, now + 0.12);
+            gain.gain.setValueAtTime(0.18, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.38);
+        } else {
+            // Pleasant Crystal Chime (ascending: 587.33Hz (D5) -> 880Hz (A5))
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, now);
+            osc.frequency.exponentialRampToValueAtTime(880.00, now + 0.15);
+            gain.gain.setValueAtTime(0.16, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.55);
+        }
+    } catch (e) {
+        // AudioContext blocked before first user gesture
+    }
+}
+
+// ── Floating Toast Popup Display ──
+let toastAutoDismissTimer = null;
+
+function showDashboardToast(event) {
+    const toastEl = document.getElementById('dash-live-notification-toast');
+    const toastCard = document.getElementById('dash-toast-card');
+    const iconWrapper = document.getElementById('dash-toast-icon-wrapper');
+    const icon = document.getElementById('dash-toast-icon');
+    const badge = document.getElementById('dash-toast-badge');
+    const title = document.getElementById('dash-toast-title');
+    const body = document.getElementById('dash-toast-body');
+    const time = document.getElementById('dash-toast-time');
+    const actionBtn = document.getElementById('dash-toast-action-btn');
+
+    if (!toastEl) return;
+
+    const isFailed = event.status === 'failed';
+    const isWarning = event.status === 'warning';
+
+    // Set colors & border
+    if (isFailed) {
+        toastCard.style.borderLeft = '5px solid #DC2626';
+        iconWrapper.className = 'p-2 rounded-circle bg-danger bg-opacity-10 text-danger flex-shrink-0';
+        icon.className = 'bi bi-exclamation-octagon-fill fs-5';
+        badge.className = 'badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 text-2xs fw-bold px-2 py-0.5 rounded-pill';
+        badge.innerText = event.failure ? 'Issue: ' + event.failure.replace('_', ' ') : 'Failed Event';
+    } else if (isWarning) {
+        toastCard.style.borderLeft = '5px solid #D97706';
+        iconWrapper.className = 'p-2 rounded-circle bg-warning bg-opacity-10 text-warning flex-shrink-0';
+        icon.className = 'bi bi-exclamation-triangle-fill fs-5';
+        badge.className = 'badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 text-2xs fw-bold px-2 py-0.5 rounded-pill';
+        badge.innerText = 'Warning Alert';
+    } else {
+        toastCard.style.borderLeft = '5px solid #059669';
+        iconWrapper.className = 'p-2 rounded-circle bg-success bg-opacity-10 text-success flex-shrink-0';
+        icon.className = 'bi bi-check-circle-fill fs-5';
+        badge.className = 'badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 text-2xs fw-bold px-2 py-0.5 rounded-pill';
+        badge.innerText = event.action_label || 'Activity Event';
+    }
+
+    title.innerText = (event.action_label ? event.action_label + ': ' : '') + (event.user_name || 'User');
+    body.innerText = event.description || 'Recent activity detected on the portal.';
+    time.innerText = event.time || 'Just now';
+
+    if (actionBtn && event.url) {
+        actionBtn.href = event.url;
+    }
+
+    toastEl.style.display = 'block';
+    toastEl.classList.add('animate__animated', 'animate__fadeInUp');
+
+    clearTimeout(toastAutoDismissTimer);
+    toastAutoDismissTimer = setTimeout(() => {
+        dismissDashboardToast();
+    }, 7000);
+}
+
+function dismissDashboardToast() {
+    const toastEl = document.getElementById('dash-live-notification-toast');
+    if (toastEl) {
+        toastEl.style.display = 'none';
+    }
 }
 fetchLiveUsers();
 setInterval(fetchLiveUsers, 5000);
@@ -1300,6 +1466,36 @@ function updateDashLiveTimers() {
 updateDashLiveTimers();
 setInterval(updateDashLiveTimers, 1000);
 </script>
+{{-- Floating Real-time Notification Toast Popup --}}
+<div id="dash-live-notification-toast" class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999; display: none; max-width: 380px;">
+    <div class="card border-0 shadow-lg rounded-4 overflow-hidden" id="dash-toast-card" style="background: #ffffff; border-left: 5px solid #2563EB !important; transition: all 0.3s ease;">
+        <div class="card-body p-3.5">
+            <div class="d-flex align-items-start gap-2.5">
+                <div id="dash-toast-icon-wrapper" class="p-2 rounded-circle bg-primary bg-opacity-10 text-primary flex-shrink-0">
+                    <i class="bi bi-bell-fill fs-5" id="dash-toast-icon"></i>
+                </div>
+                <div class="flex-grow-1 min-w-0">
+                    <div class="d-flex align-items-center justify-content-between mb-0.5">
+                        <span class="badge bg-light text-muted border text-2xs fw-bold px-2 py-0.5 rounded-pill" id="dash-toast-badge">Activity Alert</span>
+                        <small class="text-muted text-2xs" id="dash-toast-time">Just now</small>
+                    </div>
+                    <h6 class="fw-bold mb-1 text-dark text-truncate" id="dash-toast-title" style="font-size: 0.88rem;">New Activity</h6>
+                    <p class="text-muted mb-2 small text-truncate-2" id="dash-toast-body" style="font-size: 0.76rem; line-height: 1.35;">Details...</p>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{{ route('admin.user-logs.index') }}" class="btn btn-xs btn-primary rounded-pill px-2.5 py-1 text-2xs fw-semibold" id="dash-toast-action-btn">
+                            Inspect Logs <i class="bi bi-arrow-right ms-0.5"></i>
+                        </a>
+                        <button type="button" class="btn btn-xs btn-light border rounded-pill px-2 py-1 text-2xs text-muted" onclick="dismissDashboardToast()">
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+                <button type="button" class="btn-close text-2xs p-1" onclick="dismissDashboardToast()" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endpush
 
 @endsection

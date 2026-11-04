@@ -809,6 +809,14 @@
                 <i class="bi bi-bar-chart-line-fill"></i>
                 <span>Reports & Analytics</span>
             </a>
+            <a href="{{ route('admin.user-logs.index') }}"
+                class="nav-link {{ request()->routeIs('admin.user-logs*') ? 'active' : '' }}">
+                <i class="bi bi-person-lines-fill"></i>
+                <span>User Behavior Logs</span>
+                @if(($sidebarCounts['user_logs'] ?? 0) > 0)
+                    <span class="badge sidebar-count-pill ms-auto">{{ number_format($sidebarCounts['user_logs']) }}</span>
+                @endif
+            </a>
 
             <div class="sidebar-section-title">SETTINGS</div>
             <a href="{{ route('admin.muftis.index') }}"

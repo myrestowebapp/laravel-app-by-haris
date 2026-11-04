@@ -454,6 +454,28 @@ class DashboardController extends Controller
         $data['onlineVisitorsCount'] = $onlineVisitorsCount;
         $data['totalLiveCount'] = $totalLiveCount;
 
+        // 4. Latest Behavioral / Activity Event for real-time sound notification & popup
+        $latestEvent = null;
+        if (class_exists(\App\Models\UserActivityLog::class) && \Illuminate\Support\Facades\Schema::hasTable('user_activity_logs')) {
+            $recentLog = \App\Models\UserActivityLog::latest('id')->first();
+            if ($recentLog) {
+                $latestEvent = [
+                    'id'           => $recentLog->id,
+                    'action'       => $recentLog->action,
+                    'action_label' => $recentLog->getActionLabel(),
+                    'user_name'    => $recentLog->user_name ?: ($recentLog->identifier ?: 'User'),
+                    'description'  => $recentLog->description,
+                    'status'       => $recentLog->status,
+                    'failure'      => $recentLog->failure_reason,
+                    'time'         => $recentLog->created_at->diffForHumans(),
+                    'timestamp'    => $recentLog->created_at->timestamp * 1000,
+                    'icon'         => $recentLog->getActionIcon(),
+                    'url'          => route('admin.user-logs.index', ['search' => $recentLog->identifier ?: $recentLog->user_email]),
+                ];
+            }
+        }
+        $data['latestEvent'] = $latestEvent;
+
         return response()->json($data);
     }
 

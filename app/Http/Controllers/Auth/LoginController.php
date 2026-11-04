@@ -104,6 +104,17 @@ class LoginController extends Controller
         
         $user = \App\Models\User::where($login_type, $request->login_id)->first();
         if (!$user) {
+            if (class_exists(\App\Models\UserActivityLog::class)) {
+                \App\Models\UserActivityLog::record(
+                    action: 'otp_failed',
+                    description: 'Failed OTP request: No user account found with ' . $login_type . ' ' . $request->login_id,
+                    status: 'failed',
+                    user: null,
+                    identifier: $request->login_id,
+                    failureReason: 'user_not_found',
+                    actionCategory: 'auth'
+                );
+            }
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -121,7 +132,28 @@ class LoginController extends Controller
 
         try {
             \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\RegistrationOtpMail($otp));
+            if (class_exists(\App\Models\UserActivityLog::class)) {
+                \App\Models\UserActivityLog::record(
+                    action: 'otp_requested',
+                    description: '6-digit login OTP code generated and sent to ' . $user->email,
+                    status: 'info',
+                    user: $user,
+                    identifier: $user->email,
+                    actionCategory: 'auth'
+                );
+            }
         } catch (\Exception $e) {
+            if (class_exists(\App\Models\UserActivityLog::class)) {
+                \App\Models\UserActivityLog::record(
+                    action: 'otp_failed',
+                    description: 'Failed sending login OTP to ' . $user->email . ': ' . $e->getMessage(),
+                    status: 'failed',
+                    user: $user,
+                    identifier: $user->email,
+                    failureReason: 'mail_failed',
+                    actionCategory: 'auth'
+                );
+            }
             \Illuminate\Support\Facades\Log::warning('OTP Mail Error: ' . $e->getMessage());
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
@@ -165,6 +197,17 @@ class LoginController extends Controller
             Auth::login($user, $request->boolean('remember', true));
             $request->session()->regenerate();
 
+            if (class_exists(\App\Models\UserActivityLog::class)) {
+                \App\Models\UserActivityLog::record(
+                    action: 'otp_verified',
+                    description: 'Successfully verified 6-digit login OTP for ' . $user->email,
+                    status: 'success',
+                    user: $user,
+                    identifier: $user->email,
+                    actionCategory: 'auth'
+                );
+            }
+
             if ($user->hasRole('mufti') || $user->hasRole('admin')) {
                 \App\Models\FatwaActivityLog::log(
                     null,
@@ -192,6 +235,18 @@ class LoginController extends Controller
             }
 
             return redirect($intendedUrl)->with('success', 'Logged in successfully!');
+        }
+
+        if (class_exists(\App\Models\UserActivityLog::class)) {
+            \App\Models\UserActivityLog::record(
+                action: 'otp_failed',
+                description: 'Invalid or expired 6-digit OTP code entered for ' . $request->email,
+                status: 'failed',
+                user: $user,
+                identifier: $request->email,
+                failureReason: 'invalid_otp',
+                actionCategory: 'auth'
+            );
         }
 
         if ($request->wantsJson() || $request->ajax()) {

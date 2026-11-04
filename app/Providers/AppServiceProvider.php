@@ -79,6 +79,11 @@ class AppServiceProvider extends ServiceProvider
                             ->count();
                     }
 
+                    $userLogsCount = 0;
+                    if (Schema::hasTable('user_activity_logs')) {
+                        $userLogsCount = \App\Models\UserActivityLog::count();
+                    }
+
                     return [
                         'total_questions' => $totalQuestions,
                         'pending'         => $statusCounts['pending'] ?? 0,
@@ -97,6 +102,7 @@ class AppServiceProvider extends ServiceProvider
                         'visitors'        => $liveVisitors,
                         'total_visitors'  => $totalAudience,
                         'collisions'      => $collisionCount,
+                        'user_logs'       => $userLogsCount,
                     ];
                 } catch (\Throwable $e) {
                     return [];
@@ -131,6 +137,25 @@ class AppServiceProvider extends ServiceProvider
                     $event->user->recordLogin();
                     $log = \App\Models\UserLoginLog::logLogin($event->user);
                     
+                    // Comprehensive User Behavior Log
+                    if (class_exists(\App\Models\UserActivityLog::class) && Schema::hasTable('user_activity_logs')) {
+                        \App\Models\UserActivityLog::record(
+                            action: 'login_success',
+                            description: 'Signed in successfully from ' . ($log->device ?? 'Device') . ' (' . ($log->browser ?: 'Browser') . ' on ' . ($log->platform ?: 'OS') . ')',
+                            status: 'success',
+                            user: $event->user,
+                            identifier: $event->user->email,
+                            actionCategory: 'auth',
+                            contextData: [
+                                'device'   => $log->device ?? 'Desktop',
+                                'platform' => $log->platform,
+                                'browser'  => $log->browser,
+                                'location' => $log->location,
+                                'ip'       => $log->ip_address,
+                            ]
+                        );
+                    }
+
                     if ($event->user->hasRole('mufti') || $event->user->hasRole('admin')) {
                         \App\Models\FatwaActivityLog::create([
                             'question_id' => null,
@@ -150,6 +175,52 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        // Automatically record failed login attempts
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Failed::class, function ($event) {
+            try {
+                if (!class_exists(\App\Models\UserActivityLog::class) || !Schema::hasTable('user_activity_logs')) {
+                    return;
+                }
+
+                $credentials = $event->credentials ?? [];
+                $identifier = $credentials['email'] ?? ($credentials['login_id'] ?? ($credentials['mobile'] ?? null));
+                $user = $event->user;
+
+                if (!$user && $identifier) {
+                    $isEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL);
+                    $user = \App\Models\User::where($isEmail ? 'email' : 'mobile', $identifier)->first();
+                }
+
+                $failureReason = 'invalid_password';
+                $reasonText = 'Incorrect password entered';
+                if (!$user) {
+                    $failureReason = 'user_not_found';
+                    $reasonText = 'No user account registered with this identifier';
+                } elseif (!$user->is_active) {
+                    $failureReason = 'account_inactive';
+                    $reasonText = 'User account is deactivated / suspended';
+                }
+
+                \App\Models\UserActivityLog::record(
+                    action: 'login_failed',
+                    description: 'Failed login attempt (' . ($identifier ?: 'Unknown Identifier') . '): ' . $reasonText,
+                    status: 'failed',
+                    user: $user,
+                    identifier: $identifier,
+                    failureReason: $failureReason,
+                    actionCategory: 'auth',
+                    contextData: [
+                        'identifier_attempted' => $identifier,
+                        'user_exists'          => (bool)$user,
+                        'account_active'       => $user ? (bool)$user->is_active : null,
+                    ]
+                );
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Error recording failed login activity: ' . $e->getMessage());
+            }
+        });
+
+        // Automatically record user logout
         \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Logout::class, function ($event) {
             if (isset($event->user) && $event->user instanceof \App\Models\User) {
                 try {
@@ -162,6 +233,18 @@ class AppServiceProvider extends ServiceProvider
                         $durationMins = max(1, round($activeLog->duration_seconds / 60));
                     }
                     
+                    if (class_exists(\App\Models\UserActivityLog::class) && Schema::hasTable('user_activity_logs')) {
+                        \App\Models\UserActivityLog::record(
+                            action: 'logout',
+                            description: 'User logged out. Session active duration: ' . $durationMins . ' mins',
+                            status: 'info',
+                            user: $event->user,
+                            identifier: $event->user->email,
+                            actionCategory: 'auth',
+                            contextData: ['duration_minutes' => $durationMins]
+                        );
+                    }
+
                     if ($event->user->hasRole('mufti') || $event->user->hasRole('admin')) {
                         \App\Models\FatwaActivityLog::create([
                             'question_id' => null,
@@ -179,6 +262,24 @@ class AppServiceProvider extends ServiceProvider
                     \Illuminate\Support\Facades\Log::warning('Error recording logout activity: ' . $e->getMessage());
                 }
             }
+        });
+
+        // Record password resets
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\PasswordReset::class, function ($event) {
+            try {
+                if (isset($event->user) && $event->user instanceof \App\Models\User) {
+                    if (class_exists(\App\Models\UserActivityLog::class) && Schema::hasTable('user_activity_logs')) {
+                        \App\Models\UserActivityLog::record(
+                            action: 'password_reset_success',
+                            description: 'Password was successfully reset by user',
+                            status: 'success',
+                            user: $event->user,
+                            identifier: $event->user->email,
+                            actionCategory: 'security'
+                        );
+                    }
+                }
+            } catch (\Throwable $e) {}
         });
     }
 }

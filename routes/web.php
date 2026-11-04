@@ -302,6 +302,11 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/reports/export', [\App\Http\Controllers\Admin\ReportController::class, 'export'])->name('reports.export');
     Route::get('/reports/pdf', [\App\Http\Controllers\Admin\ReportController::class, 'downloadPdf'])->name('reports.pdf');
 
+    // User Behavioral & Activity Logs
+    Route::get('/user-logs', [\App\Http\Controllers\Admin\UserActivityLogController::class, 'index'])->name('user-logs.index');
+    Route::get('/user-logs/export', [\App\Http\Controllers\Admin\UserActivityLogController::class, 'export'])->name('user-logs.export');
+    Route::get('/user-logs/{id}', [\App\Http\Controllers\Admin\UserActivityLogController::class, 'show'])->name('user-logs.show');
+
     // Questioner Management
     Route::get('/questioners', [\App\Http\Controllers\Admin\QuestionerController::class, 'index'])->name('questioners.index');
     Route::post('/questioners/export-selected', [\App\Http\Controllers\Admin\QuestionerController::class, 'exportSelected'])->name('questioners.export-selected');
