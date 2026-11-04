@@ -817,6 +817,14 @@
                     <span class="badge sidebar-count-pill ms-auto">{{ number_format($sidebarCounts['user_logs']) }}</span>
                 @endif
             </a>
+            <a href="{{ route('admin.traffic.performance') }}"
+                class="nav-link {{ request()->routeIs('admin.traffic.performance*') ? 'active' : '' }}">
+                <i class="bi bi-speedometer2"></i>
+                <span>Traffic &amp; Performance</span>
+                <span class="badge rounded-pill px-2 py-0.5 text-2xs fw-bold ms-auto" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0;">
+                    <span class="live-pulse-dot me-1" style="width: 5px; height: 5px;"></span> Live
+                </span>
+            </a>
 
             <div class="sidebar-section-title">SETTINGS</div>
             <a href="{{ route('admin.muftis.index') }}"

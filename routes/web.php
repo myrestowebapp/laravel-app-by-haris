@@ -239,6 +239,11 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/visitor-insights', [DashboardController::class, 'visitorInsights'])->name('visitor.insights');
     Route::get('/api/visitor-insights-globe', [DashboardController::class, 'visitorInsightsGlobeApi'])->name('visitor.insights.api');
 
+    // Site Traffic & Performance Monitor
+    Route::get('/traffic-performance', [\App\Http\Controllers\Admin\TrafficPerformanceController::class, 'index'])->name('traffic.performance');
+    Route::get('/traffic-performance/api', [\App\Http\Controllers\Admin\TrafficPerformanceController::class, 'apiTelemetry'])->name('traffic.performance.api');
+    Route::post('/traffic-performance/ping', [\App\Http\Controllers\Admin\TrafficPerformanceController::class, 'runSyntheticPing'])->name('traffic.performance.ping');
+
     // Import Old Fatwas & PDF Export
     Route::get('/fatwas/export-pdf', [DashboardController::class, 'exportPdf'])->name('fatwas.export.pdf');
     Route::get('/fatwas/import-old', [ImportOldFatwaController::class, 'create'])->name('fatwas.import-old');
