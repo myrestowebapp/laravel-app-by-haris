@@ -51,9 +51,10 @@
                         <i class="bi bi-journal-text fs-5"></i>
                     </div>
                 </div>
-                <h3 class="fw-bold text-dark mb-1" id="stat-total-logs">{{ number_format($totalLogs) }}</h3>
+                <h3 class="fw-bold text-dark mb-1" id="stat-total-logs">{{ number_format($totalLogsAll) }}</h3>
                 <div class="d-flex align-items-center text-muted" style="font-size: 0.74rem;">
                     <span class="text-primary fw-semibold me-1">+{{ number_format($todayLogs) }}</span> today
+                    <span class="ms-1 text-muted">(All sources)</span>
                 </div>
             </div>
         </div>
@@ -103,7 +104,7 @@
                 </div>
                 <h3 class="fw-bold text-dark mb-1" id="stat-active-users">{{ number_format($activeUsersToday) }}</h3>
                 <div class="d-flex align-items-center text-muted" style="font-size: 0.74rem;">
-                    <span class="text-info fw-semibold me-1">{{ number_format($questionEventsCount) }}</span> inquiries posted
+                    <span class="text-info fw-semibold me-1">{{ number_format($uniqueVisitorsToday) }}</span> unique visitors today
                 </div>
             </div>
         </div>
@@ -141,10 +142,11 @@
                     </select>
                 </div>
 
-                {{-- Event Action Filter --}}
+                {{-- Action Filter: added page_visit --}}
                 <div class="col-6 col-md-4 col-xl-2">
                     <select id="action-filter" class="form-select rounded-pill py-2 text-xs" onchange="applyFilters()">
                         <option value="all" {{ ($action ?? 'all') === 'all' ? 'selected' : '' }}>All Event Types</option>
+                        <option value="page_visit" {{ ($action ?? '') === 'page_visit' ? 'selected' : '' }}>👁️ Page Visits (Visitors)</option>
                         <option value="login_all" {{ ($action ?? '') === 'login_all' ? 'selected' : '' }}>🔑 All Login Attempts</option>
                         <option value="login_failed" {{ ($action ?? '') === 'login_failed' ? 'selected' : '' }}>🚫 Failed Password Login</option>
                         <option value="otp_all" {{ ($action ?? '') === 'otp_all' ? 'selected' : '' }}>📩 All OTP Events</option>
@@ -165,36 +167,39 @@
                     </select>
                 </div>
 
-                {{-- Rows Per Page Selector --}}
-                <div class="col-6 col-md-3 col-xl-2">
-                    <select id="per-page-selector" class="form-select rounded-pill py-2 text-xs" onchange="applyFilters()">
-                        <option value="10" {{ $perPage == 10 ? 'selected' : '' }}>Show 10 rows</option>
-                        <option value="20" {{ $perPage == 20 ? 'selected' : '' }}>Show 20 rows</option>
-                        <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>Show 50 rows</option>
-                        <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>Show 100 rows</option>
-                    </select>
+                {{-- Rows Per Page: replaced selector with info badge (8 fixed) --}}
+                <div class="col-6 col-md-3 col-xl-2 d-flex align-items-center">
+                    <span class="badge bg-light text-muted border rounded-pill px-3 py-2 text-xs">
+                        <i class="bi bi-layout-text-window-reverse me-1"></i>8 rows / page
+                    </span>
                 </div>
             </div>
 
             {{-- Quick Filter Pills --}}
             <div class="d-flex align-items-center gap-1.5 mt-3 pt-2 border-top flex-wrap" style="font-size: 0.74rem;">
                 <span class="text-muted fw-semibold me-1">Quick Filters:</span>
-                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($status ?? 'all') === 'all' && ($action ?? 'all') === 'all' ? 'btn-primary' : 'btn-light border text-muted' }}" onclick="resetAllFilters()">
-                    All Events
+                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($sourceFilter ?? 'all') === 'all' && ($status ?? 'all') === 'all' && ($action ?? 'all') === 'all' ? 'btn-primary' : 'btn-light border text-muted' }}" onclick="resetAllFilters()">
+                    All System Logs
+                </button>
+                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($sourceFilter ?? '') === 'login' ? 'btn-success text-white' : 'btn-light border text-muted' }}" onclick="quickFilterSource('login')">
+                    🔑 Logins ({{ number_format($successLogins) }})
+                </button>
+                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($sourceFilter ?? '') === 'visitor' ? 'btn-info text-white' : 'btn-light border text-muted' }}" onclick="quickFilterSource('visitor')">
+                    👁 Web Visitors
+                </button>
+                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($sourceFilter ?? '') === 'fatwa' ? 'btn-warning text-dark' : 'btn-light border text-muted' }}" onclick="quickFilterSource('fatwa')">
+                    📜 Fatwa &amp; Scholar Activities
                 </button>
                 <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($status ?? '') === 'failed' ? 'btn-danger text-white' : 'btn-light border text-danger' }}" onclick="quickFilterFailed()">
-                    🚨 Failed Logins &amp; Issues Only
+                    🚨 Issues &amp; Failures Only
                 </button>
-                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($action ?? '') === 'login_all' ? 'btn-success text-white' : 'btn-light border text-muted' }}" onclick="quickFilterAction('login_all')">
-                    🔑 Logins
+                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($sourceFilter ?? '') === 'security' ? 'btn-dark' : 'btn-light border text-muted' }}" onclick="quickFilterSource('security')">
+                    🛡 Security &amp; Audit Logs
                 </button>
-                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($action ?? '') === 'otp_all' ? 'btn-info text-white' : 'btn-light border text-muted' }}" onclick="quickFilterAction('otp_all')">
-                    📩 OTP Events
+                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($sourceFilter ?? '') === 'api' ? 'btn-secondary text-white' : 'btn-light border text-muted' }}" onclick="quickFilterSource('api')">
+                    ⚡ API Telemetry
                 </button>
-                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($action ?? '') === 'question_submitted' ? 'btn-primary' : 'btn-light border text-muted' }}" onclick="quickFilterAction('question_submitted')">
-                    📝 Questions Posted
-                </button>
-                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($dateRange ?? '') === 'today' ? 'btn-dark' : 'btn-light border text-muted' }}" onclick="quickFilterToday()">
+                <button type="button" class="btn btn-xs rounded-pill px-2.5 py-1 quick-pill {{ ($dateRange ?? '') === 'today' ? 'btn-primary' : 'btn-light border text-muted' }}" onclick="quickFilterToday()">
                     📅 Today Only
                 </button>
             </div>
@@ -208,7 +213,7 @@
                 </div>
             </div>
 
-            @include('admin.user-logs.partials.table', ['logs' => $logs])
+            @include('admin.user-logs.partials.table-unified', ['logs' => $paginator])
         </div>
     </div>
 </div>
@@ -309,13 +314,22 @@ function quickFilterSearch(query) {
     }
 }
 
+let currentLogSource = '{{ $sourceFilter ?? 'all' }}';
+
+function quickFilterSource(src) {
+    currentLogSource = src;
+    fetchLogsAjax();
+}
+
 function quickFilterFailed() {
+    currentLogSource = 'all';
     document.getElementById('status-filter').value = 'failed';
     document.getElementById('action-filter').value = 'all';
     fetchLogsAjax();
 }
 
 function quickFilterAction(actionVal) {
+    currentLogSource = 'all';
     document.getElementById('action-filter').value = actionVal;
     document.getElementById('status-filter').value = 'all';
     fetchLogsAjax();
@@ -327,6 +341,7 @@ function quickFilterToday() {
 }
 
 function resetAllFilters() {
+    currentLogSource = 'all';
     document.getElementById('user-logs-search').value = '';
     document.getElementById('clear-search-btn')?.classList.add('d-none');
     document.getElementById('status-filter').value = 'all';
@@ -353,14 +368,14 @@ async function fetchLogsAjax(callback) {
     const status = document.getElementById('status-filter')?.value || 'all';
     const action = document.getElementById('action-filter')?.value || 'all';
     const dateRange = document.getElementById('date-range-filter')?.value || 'all';
-    const perPage = document.getElementById('per-page-selector')?.value || '20';
 
     const params = new URLSearchParams({
         search: search,
         status: status,
         action: action,
+        source: currentLogSource,
         date_range: dateRange,
-        per_page: perPage
+        per_page: '8'
     });
 
     // Sync URL without reload
@@ -417,7 +432,7 @@ async function fetchLogsAjax(callback) {
 }
 
 // Open Diagnostic Modal
-async function openLogInspectModal(logId) {
+async function openLogInspectModal(logId, source = 'activity') {
     const modalEl = document.getElementById('logInspectModal');
     if (!modalEl) return;
     const modal = new bootstrap.Modal(modalEl);
@@ -433,7 +448,7 @@ async function openLogInspectModal(logId) {
     `;
 
     try {
-        const response = await fetch(`/admin/user-logs/${logId}`);
+        const response = await fetch(`/admin/user-logs/${logId}?source=${encodeURIComponent(source)}`);
         const log = await response.json();
 
         const isFailed = log.status === 'failed';
